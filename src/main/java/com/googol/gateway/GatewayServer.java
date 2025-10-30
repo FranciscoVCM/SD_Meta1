@@ -1,6 +1,7 @@
 package com.googol.gateway;
 
 import com.googol.barrels.Barrel;
+import com.googol.downloaders.DownloaderManager;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
 
@@ -13,20 +14,21 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     private final List<Barrel> barrels;
     private final AtomicInteger rr = new AtomicInteger();
+    private final DownloaderManager downloader;
 
     public GatewayServer(List<Barrel> barrels) throws RemoteException {
         super();
         this.barrels = barrels;
+        this.downloader = new DownloaderManager(barrels);
+        this.downloader.start(); // arranca workers
     }
 
-    private Barrel pick() {
-        return barrels.get(Math.abs(rr.getAndIncrement() % barrels.size()));
-    }
+    private Barrel pick() { return barrels.get(Math.abs(rr.getAndIncrement() % barrels.size())); }
 
     @Override
     public void indexUrl(String url) throws RemoteException {
-        // TODO: colocar URL na fila/crawler
-        System.out.println("Index request: " + url);
+        downloader.submit(url);
+        System.out.println("Enqueued: " + url);
     }
 
     @Override
