@@ -59,6 +59,29 @@ public class ClientApp {
                 System.out.println("numDocs      = " + s.numDocs);
                 System.out.println("numTerms     = " + s.numTerms);
                 System.out.println("numPostings  = " + s.numPostings);
+
+                // === EX6: extra
+                if (s.topQueries != null && !s.topQueries.isEmpty()) {
+                    System.out.println("\nTop queries:");
+                    int i = 1;
+                    for (String qstr : s.topQueries) {
+                        System.out.println("  " + (i++) + ". " + qstr);
+                    }
+                }
+
+                if (s.barrelNumDocs != null && !s.barrelNumDocs.isEmpty()) {
+                    System.out.println("\nBarrels (numDocs):");
+                    s.barrelNumDocs.forEach((label, docs) ->
+                            System.out.println("  " + label + " = " + docs));
+                }
+                if (s.barrelAvgLatencySec != null && !s.barrelAvgLatencySec.isEmpty()) {
+                    System.out.println("\nLatência média por barrel (segundos):");
+                    s.barrelAvgLatencySec.forEach((label, sec) -> {
+                        String val = (sec == null || sec < 0) ? "N/A" : String.format("%.1f s", sec);
+                        System.out.println("  " + label + " = " + val);
+                    });
+                }
+
             }
             case "inlinks" -> {
                 if (args.length < 2) { System.out.println("usage: inlinks <url>"); return; }

@@ -8,14 +8,27 @@ import com.googol.model.StatsSnapshot;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.*;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     private final List<Barrel> barrels;
     private final AtomicInteger rr = new AtomicInteger();
     private final DownloaderManager downloader;
+
+    // === EX6: métricas
+    private final ConcurrentHashMap<String, Integer> queryFreq = new ConcurrentHashMap<>();
+    // por índice do barrel (0..N-1)
+    private final ConcurrentHashMap<Integer, LongAdder> barrelOkCount = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, LongAdder> barrelLatencyMs = new ConcurrentHashMap<>();
+
+    private String barrelLabel(int idx) {
+        return "Barrel" + (idx + 1);
+    }
 
     public GatewayServer(List<Barrel> barrels) throws RemoteException {
         super();
@@ -24,7 +37,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         this.downloader.start();
     }
 
-    // round-robin robusto
+    // round-robin simples
     private Barrel pick() throws RemoteException {
         if (barrels == null || barrels.isEmpty()) {
             throw new RemoteException("No barrels available");
@@ -43,12 +56,27 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     public synchronized SearchResult search(SearchQuery q) throws RemoteException {
         if (barrels.isEmpty()) throw new RemoteException("No barrels available");
 
-        // tenta o barrel em round-robin; se falhar, tenta os restantes (failover simples)
+        // === EX6: contar query
+        String key = (q.terms == null) ? "" : q.terms.toLowerCase().trim();
+        if (!key.isBlank()) {
+            queryFreq.merge(key, 1, Integer::sum);
+        }
+
+        // tenta em RR; se falhar, vai tentando os restantes
         int start = Math.abs(rr.get()) % barrels.size();
         for (int k = 0; k < barrels.size(); k++) {
             int idx = (start + k) % barrels.size();
+            Barrel b = barrels.get(idx);
+            long t0 = System.nanoTime();
             try {
-                return barrels.get(idx).search(q);
+                SearchResult r = b.search(q);
+
+                // === EX6: registar latência do barrel (só em sucesso)
+                long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+                barrelOkCount.computeIfAbsent(idx, i -> new LongAdder()).increment();
+                barrelLatencyMs.computeIfAbsent(idx, i -> new LongAdder()).add(elapsedMs);
+
+                return r;
             } catch (RemoteException e) {
                 // tenta próximo
             }
@@ -62,20 +90,6 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     }
 
     @Override
-    public StatsSnapshot stats() throws RemoteException {
-        // 1) métricas do Barrel (numDocs, numTerms, numPostings)
-        StatsSnapshot b = pick().stats();
-
-        // 2) métricas do DownloaderManager (pagesIndexed, urlsInQueue, activeDownloaders)
-        StatsSnapshot d = downloader.stats();
-
-        // 3) combina
-        b.pagesIndexed      = d.pagesIndexed;
-        b.urlsInQueue       = d.urlsInQueue;
-        b.activeDownloaders = d.activeDownloaders;
-        return b;
-    }
-    @Override
     public synchronized List<String> backlinks(String url) throws RemoteException {
         if (barrels.isEmpty()) throw new RemoteException("No barrels available");
         int start = Math.abs(rr.get()) % barrels.size();
@@ -88,6 +102,60 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             }
         }
         throw new RemoteException("All barrels unavailable");
+    }
+    @Override
+    public StatsSnapshot stats() throws RemoteException {
+        StatsSnapshot out = new StatsSnapshot();
+
+        // === (1) Métricas dos Barrels (numDocs/numTerms/numPostings)
+        //       e também preencher barrelNumDocs (EX6)
+        int totalDocs = 0, totalTerms = 0, totalPostings = 0;
+        for (int i = 0; i < barrels.size(); i++) {
+            try {
+                StatsSnapshot s = barrels.get(i).stats();
+                totalDocs     += s.numDocs;
+                totalTerms    += s.numTerms;
+                totalPostings += s.numPostings;
+
+                out.barrelNumDocs.put(barrelLabel(i), s.numDocs);
+            } catch (RemoteException e) {
+                out.barrelNumDocs.put(barrelLabel(i), -1); // -1 = indisponível
+            }
+        }
+        out.numDocs     = totalDocs;
+        out.numTerms    = totalTerms;
+        out.numPostings = totalPostings;
+
+        // === (2) Métricas do DownloaderManager
+        StatsSnapshot d = downloader.stats();
+        out.pagesIndexed      = d.pagesIndexed;
+        out.urlsInQueue       = d.urlsInQueue;
+        out.activeDownloaders = d.activeDownloaders;
+
+        // === (3) Top-10 queries (EX6)
+        // ordenar por frequência desc; em empate, alfabética
+        PriorityQueue<Map.Entry<String,Integer>> pq =
+                new PriorityQueue<>((a,b) -> {
+                    int c = Integer.compare(b.getValue(), a.getValue());
+                    if (c != 0) return c;
+                    return a.getKey().compareTo(b.getKey());
+                });
+        pq.addAll(queryFreq.entrySet());
+        int limit = 10;
+        while (!pq.isEmpty() && limit-- > 0) {
+            Map.Entry<String,Integer> e = pq.poll();
+            out.topQueries.add(e.getKey() + " (" + e.getValue() + ")");
+        }
+
+        // === (4) Latência média por Barrel em segundos (EX6)
+        for (int i = 0; i < barrels.size(); i++) {
+            long cnt   = Optional.ofNullable(barrelOkCount.get(i)).map(LongAdder::sum).orElse(0L);
+            long sumMs = Optional.ofNullable(barrelLatencyMs.get(i)).map(LongAdder::sum).orElse(0L);
+            double avgSec = (cnt > 0) ? ((sumMs * 1.0 / cnt) / 1000.0) : -1.0; // ms -> s
+            out.barrelAvgLatencySec.put(barrelLabel(i), avgSec);
+        }
+
+        return out;
     }
 
 }
