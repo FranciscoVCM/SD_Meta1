@@ -19,6 +19,9 @@ public class InvertedIndex implements Serializable {
     // termo -> (url -> tf)
     private final Map<String, Map<String, Integer>> postings = new HashMap<>();
 
+    // URL -> { páginas que apontam para ela }
+    private final Map<String, Set<String>> inlinksMap = new HashMap<>();
+
     // url -> documento
     private final Map<String, PageDocument> docs = new HashMap<>();
 
@@ -27,7 +30,26 @@ public class InvertedIndex implements Serializable {
 
     /** Adiciona (ou substitui) o documento e actualiza as ocorrências dos termos. */
     public synchronized void add(PageDocument doc) {
-        docs.put(doc.url, doc);
+        // obter doc antigo (se existir) antes de substituir
+        PageDocument old = docs.put(doc.url, doc);
+
+        // retirar arestas antigas deste doc (se reindexares a mesma URL)
+        if (old != null && old.outlinks != null) {
+            for (String to : old.outlinks) {
+                Set<String> S = inlinksMap.get(to);
+                if (S != null) {
+                    S.remove(old.url);
+                    if (S.isEmpty()) inlinksMap.remove(to);
+                }
+            }
+        }
+
+        // adicionar arestas novas (backlinks)
+        if (doc.outlinks != null) {
+            for (String to : doc.outlinks) {
+                inlinksMap.computeIfAbsent(to, k -> new HashSet<>()).add(doc.url);
+            }
+        }
 
         List<String> terms = TextUtils.tokenize(doc.text);
         if (terms.isEmpty()) return;
@@ -130,11 +152,7 @@ public class InvertedIndex implements Serializable {
     /** Número de inlinks (páginas do índice que têm outlink para esta URL). */
     public synchronized int inlinks(String url) {
         if (url == null) return 0;
-        int count = 0;
-        for (PageDocument d : docs.values()) {
-            if (d.outlinks != null && d.outlinks.contains(url)) count++;
-        }
-        return count;
+        return inlinksMap.getOrDefault(url, Collections.emptySet()).size();
     }
 
     /** Pequeno snapshot de estatísticas do índice. */
@@ -146,6 +164,13 @@ public class InvertedIndex implements Serializable {
         for (Map<String,Integer> m : postings.values()) pairs += m.size();
         s.numPostings = pairs;
         return s;
+    }
+
+    public synchronized List<String> backlinks(String url) {
+        if (url == null) return List.of();
+        Set<String> s = inlinksMap.get(url);
+        if (s == null || s.isEmpty()) return List.of();
+        return new ArrayList<>(s); // ordem arbitrária está ok; podes ordenar se quiseres
     }
 
     public synchronized PageDocument getDoc(String url) { return docs.get(url); }

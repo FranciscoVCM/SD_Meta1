@@ -51,7 +51,14 @@ public class WebCrawler {
             r.terms    = List.of();
             r.outlinks = List.of();
         }
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5))
+                .build();
 
+        HttpRequest req = HttpRequest.newBuilder(java.net.URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(8))
+                .GET()
+                .build();
         return r;
     }
 }

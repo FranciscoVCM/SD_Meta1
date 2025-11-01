@@ -75,5 +75,19 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         b.activeDownloaders = d.activeDownloaders;
         return b;
     }
+    @Override
+    public synchronized List<String> backlinks(String url) throws RemoteException {
+        if (barrels.isEmpty()) throw new RemoteException("No barrels available");
+        int start = Math.abs(rr.get()) % barrels.size();
+        for (int k = 0; k < barrels.size(); k++) {
+            int idx = (start + k) % barrels.size();
+            try {
+                return barrels.get(idx).backlinks(url);
+            } catch (RemoteException e) {
+                // tenta próximo
+            }
+        }
+        throw new RemoteException("All barrels unavailable");
+    }
 
 }

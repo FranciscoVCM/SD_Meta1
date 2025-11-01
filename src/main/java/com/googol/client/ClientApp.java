@@ -65,6 +65,13 @@ public class ClientApp {
                 var gow = RmiUtils.lookup("Gateway", Gateway.class);
                 System.out.println("inlinks(" + args[1] + ") = " + gow.inlinks(args[1]));
             }
+            case "backlinks" -> {
+                if (args.length < 2) { System.out.println("usage: backlinks <url>"); return; }
+                var gaw = RmiUtils.lookup("Gateway", Gateway.class);
+                var list = gaw.backlinks(args[1]);
+                System.out.println("Backlinks (" + list.size() + "):");
+                for (String u : list) System.out.println(" - " + u);
+            }
 
             default -> System.out.println("unknown command");
         }

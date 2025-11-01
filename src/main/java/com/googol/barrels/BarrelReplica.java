@@ -48,6 +48,11 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         return index.stats();
 
     }
+    @Override
+    public synchronized List<String> backlinks(String url) throws RemoteException {
+        // delega no índice
+        return index.backlinks(url);
+    }
 
 
 }

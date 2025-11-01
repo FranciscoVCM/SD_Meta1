@@ -7,6 +7,7 @@ import com.googol.model.StatsSnapshot;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.util.List;
 
 public interface Barrel extends Remote {
     void append(CrawlResult result) throws RemoteException;
@@ -16,4 +17,6 @@ public interface Barrel extends Remote {
     int inlinks(String url) throws RemoteException;
 
     StatsSnapshot stats() throws RemoteException;
+    // === NOVO (Ex.5)
+    List<String> backlinks(String url) throws RemoteException;
 }
