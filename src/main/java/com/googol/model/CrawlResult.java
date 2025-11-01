@@ -9,6 +9,8 @@ public class CrawlResult implements Serializable {
     public String url;
     public String title;
     public String snippet;
-    public List<String> outlinks;
     public List<String> terms;
+    public List<String> outlinks;
+    public String text;
 }
+

@@ -8,4 +8,7 @@ public class StatsSnapshot implements Serializable {
     public int pagesIndexed;
     public int urlsInQueue;
     public int activeDownloaders;
+    public int numDocs;
+    public int numTerms;
+    public int numPostings;
 }

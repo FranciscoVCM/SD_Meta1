@@ -14,7 +14,7 @@ public class SearchResult implements Serializable {
         public String snippet;
     }
 
-    public final List<Item> items = new ArrayList<>();
+    public List<Item> items = new ArrayList<>();
     public int total = 0;
     public int page = 1;
 }

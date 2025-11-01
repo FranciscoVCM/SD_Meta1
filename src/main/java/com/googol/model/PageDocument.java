@@ -10,4 +10,5 @@ public class PageDocument implements Serializable {
     public String title;
     public String snippet;
     public List<String> outlinks;
+    public String text;
 }

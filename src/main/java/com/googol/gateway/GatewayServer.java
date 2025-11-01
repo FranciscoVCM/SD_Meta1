@@ -32,9 +32,20 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     }
 
     @Override
-    public SearchResult search(SearchQuery q) throws RemoteException {
-        if (barrels.isEmpty()) return new SearchResult();
-        return pick().search(q);
+    public synchronized SearchResult search(SearchQuery q) throws RemoteException {
+        // escolher um barrel (por agora, o primeiro registado)
+        if (barrels.isEmpty()) throw new RemoteException("No barrels available");
+        Barrel b = barrels.get(0);
+        try {
+            return b.search(q);
+        } catch (RemoteException e) {
+            // tentativa de failover simples
+            for (int i = 1; i < barrels.size(); i++) {
+                try { return barrels.get(i).search(q); }
+                catch (RemoteException ignore) {}
+            }
+            throw e;
+        }
     }
 
     @Override
