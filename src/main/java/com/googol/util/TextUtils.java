@@ -1,6 +1,9 @@
 package com.googol.util;
 
+import java.net.URI;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class TextUtils {
     private TextUtils() {}
@@ -26,6 +29,47 @@ public final class TextUtils {
             terms.add(t);
         }
         return terms;
+    }
+
+    private static final Pattern TITLE_RE = Pattern.compile("(?is)<title>(.*?)</title>");
+    public static String extractTitle(String html) {
+        if (html == null) return null;
+        Matcher m = TITLE_RE.matcher(html);
+        return m.find() ? m.group(1).replaceAll("\\s+", " ").trim() : null;
+    }
+
+    public static String stripHtml(String html) {
+        if (html == null) return "";
+        return html.replaceAll("(?is)<script.*?>.*?</script>", " ")
+                .replaceAll("(?is)<style.*?>.*?</style>", " ")
+                .replaceAll("(?is)<[^>]+>", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    // links relativos -> absolutos, e filtros simples
+    private static final Pattern HREF_RE = Pattern.compile("(?is)href\\s*=\\s*\"([^\"]+)\"");
+    public static List<String> extractLinks(String baseUrl, String html, int max) {
+        List<String> out = new ArrayList<>();
+        if (html == null) return out;
+
+        URI base;
+        try { base = URI.create(baseUrl); } catch (Exception e) { return out; }
+
+        Matcher m = HREF_RE.matcher(html);
+        while (m.find() && out.size() < max) {
+            String href = m.group(1).trim();
+            if (href.startsWith("javascript:") || href.startsWith("#")) continue;
+            try {
+                URI u = base.resolve(href);
+                String s = u.normalize().toString();
+                // filtro básico: http/https, sem fragmentos mailto etc.
+                if (s.startsWith("http://") || s.startsWith("https://")) {
+                    out.add(s);
+                }
+            } catch (Exception ignored) {}
+        }
+        return out;
     }
 
     public static boolean isStopWord(String t) {

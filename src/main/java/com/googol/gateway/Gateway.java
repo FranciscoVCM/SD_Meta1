@@ -3,6 +3,7 @@ package com.googol.gateway;
 
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
+import com.googol.model.StatsSnapshot;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -14,5 +15,5 @@ public interface Gateway extends Remote {
 
     int inlinks(String url) throws RemoteException;
 
-    String stats() throws RemoteException;
+    StatsSnapshot stats() throws RemoteException;
 }

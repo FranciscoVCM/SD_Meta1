@@ -4,6 +4,7 @@ import com.googol.barrels.Barrel;
 import com.googol.downloaders.DownloaderManager;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
+import com.googol.model.StatsSnapshot;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
@@ -19,43 +20,60 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     public GatewayServer(List<Barrel> barrels) throws RemoteException {
         super();
         this.barrels = barrels;
-        this.downloader = new DownloaderManager(barrels);
-        this.downloader.start(); // arranca workers
+        this.downloader = new DownloaderManager(barrels); // workers + fila estão no manager
+        this.downloader.start();
     }
 
-    private Barrel pick() { return barrels.get(Math.abs(rr.getAndIncrement() % barrels.size())); }
+    // round-robin robusto
+    private Barrel pick() throws RemoteException {
+        if (barrels == null || barrels.isEmpty()) {
+            throw new RemoteException("No barrels available");
+        }
+        int i = Math.abs(rr.getAndIncrement()) % barrels.size();
+        return barrels.get(i);
+    }
 
     @Override
     public void indexUrl(String url) throws RemoteException {
-        downloader.submit(url);
+        downloader.submit(url);              // enfileira; os workers vão seguir outlinks também
         System.out.println("Enqueued: " + url);
     }
 
     @Override
     public synchronized SearchResult search(SearchQuery q) throws RemoteException {
-        // escolher um barrel (por agora, o primeiro registado)
         if (barrels.isEmpty()) throw new RemoteException("No barrels available");
-        Barrel b = barrels.get(0);
-        try {
-            return b.search(q);
-        } catch (RemoteException e) {
-            // tentativa de failover simples
-            for (int i = 1; i < barrels.size(); i++) {
-                try { return barrels.get(i).search(q); }
-                catch (RemoteException ignore) {}
+
+        // tenta o barrel em round-robin; se falhar, tenta os restantes (failover simples)
+        int start = Math.abs(rr.get()) % barrels.size();
+        for (int k = 0; k < barrels.size(); k++) {
+            int idx = (start + k) % barrels.size();
+            try {
+                return barrels.get(idx).search(q);
+            } catch (RemoteException e) {
+                // tenta próximo
             }
-            throw e;
         }
+        throw new RemoteException("All barrels unavailable");
     }
 
     @Override
     public int inlinks(String url) throws RemoteException {
-        if (barrels.isEmpty()) return 0;
         return pick().inlinks(url);
     }
 
     @Override
-    public String stats() throws RemoteException {
-        return "Gateway OK";
+    public StatsSnapshot stats() throws RemoteException {
+        // 1) métricas do Barrel (numDocs, numTerms, numPostings)
+        StatsSnapshot b = pick().stats();
+
+        // 2) métricas do DownloaderManager (pagesIndexed, urlsInQueue, activeDownloaders)
+        StatsSnapshot d = downloader.stats();
+
+        // 3) combina
+        b.pagesIndexed      = d.pagesIndexed;
+        b.urlsInQueue       = d.urlsInQueue;
+        b.activeDownloaders = d.activeDownloaders;
+        return b;
     }
+
 }

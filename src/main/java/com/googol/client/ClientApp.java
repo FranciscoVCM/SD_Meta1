@@ -38,6 +38,21 @@ public class ClientApp {
                     System.out.println();
                 }
             }
+            case "stats" -> {
+                var gaw = RmiUtils.lookup("Gateway", Gateway.class);
+                var s = gaw.stats();
+                System.out.println("pagesIndexed = " + s.pagesIndexed);
+                System.out.println("urlsInQueue  = " + s.urlsInQueue);
+                System.out.println("activeDl     = " + s.activeDownloaders);
+                System.out.println("numDocs      = " + s.numDocs);
+                System.out.println("numTerms     = " + s.numTerms);
+                System.out.println("numPostings  = " + s.numPostings);
+            }
+            case "inlinks" -> {
+                if (args.length < 2) { System.out.println("usage: inlinks <url>"); return; }
+                var gow = RmiUtils.lookup("Gateway", Gateway.class);
+                System.out.println("inlinks(" + args[1] + ") = " + gow.inlinks(args[1]));
+            }
 
             default -> System.out.println("unknown command");
         }
