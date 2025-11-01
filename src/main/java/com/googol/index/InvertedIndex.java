@@ -141,4 +141,5 @@ public class InvertedIndex implements Serializable {
 
     public synchronized PageDocument getDoc(String url) { return docs.get(url); }
     public int defaultPageSize() { return DEFAULT_PAGE_SIZE; }
+    //TEST
 }
