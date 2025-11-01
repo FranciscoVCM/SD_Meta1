@@ -14,8 +14,8 @@ public class DownloaderManager {
 
     // === Config do crawler (ajusta à vontade)
     private static final int NUM_WORKERS = 2;
-    private static final int MAX_PAGES   = 1000;  // orçamento total de páginas
-    private static final int MAX_DEPTH   = 5;    // 0 = só a seed
+    private static final int MAX_PAGES   = 500;  // orçamento total de páginas
+    private static final int MAX_DEPTH   = 4;    // 0 = só a seed
 
     private final List<Barrel> barrels;
 

@@ -21,18 +21,30 @@ public class ClientApp {
             }
             case "search" -> {
                 if (args.length < 2) {
-                    System.out.println("usage: search <terms>");
+                    System.out.println("usage: search [page] <terms...>");
                     return;
                 }
-                String terms = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                SearchQuery q = new SearchQuery(terms, 1);
+
+                int page = 1;
+                int termsStart = 1;
+
+                // se o 2º token for um número, interpretamos como página
+                try {
+                    if (args.length >= 3) {
+                        page = Integer.parseInt(args[1]);
+                        termsStart = 2;
+                    }
+                } catch (NumberFormatException ignored) { /* continua com page=1 */ }
+
+                String terms = String.join(" ", Arrays.copyOfRange(args, termsStart, args.length));
+                SearchQuery q = new SearchQuery(terms, page);
                 SearchResult res = gw.search(q);
 
                 System.out.println("\n=== Search Results ===");
                 System.out.println("Total: " + res.total + " (page " + res.page + ")");
-                int i = 1;
+                int i = 1 + (res.page - 1) * 10;
                 for (SearchResult.Item it : res.items) {
-                    System.out.println(i++ + ". " + it.title + " — " + it.url);
+                    System.out.println((i++) + ". " + it.title + " — " + it.url);
                     if (it.snippet != null && !it.snippet.isBlank())
                         System.out.println("   " + it.snippet);
                     System.out.println();

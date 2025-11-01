@@ -69,7 +69,7 @@ public class InvertedIndex implements Serializable {
             }
         }
 
-        // scoring
+        // scoring (tf) para desempate
         Map<String, Integer> score = new HashMap<>();
         for (String url : candidate) {
             int s = 0;
@@ -79,8 +79,21 @@ public class InvertedIndex implements Serializable {
             score.put(url, s);
         }
 
+        // === Exercício 4: ranking principal por inlinks; desempate por TF e, por fim, por URL
         List<String> urls = new ArrayList<>(candidate);
-        urls.sort((a, b) -> Integer.compare(score.get(b), score.get(a)));
+        urls.sort((a, b) -> {
+            int ia = inlinks(a);
+            int ib = inlinks(b);
+            int cmp = Integer.compare(ib, ia); // mais inlinks primeiro
+            if (cmp != 0) return cmp;
+
+            int sa = score.getOrDefault(a, 0);
+            int sb = score.getOrDefault(b, 0);
+            cmp = Integer.compare(sb, sa);     // depois TF desc
+            if (cmp != 0) return cmp;
+
+            return a.compareTo(b);             // determinismo
+        });
         return urls;
     }
 
@@ -99,7 +112,6 @@ public class InvertedIndex implements Serializable {
         SearchResult res = new SearchResult();
         res.total = total;
         res.page  = page;
-        //res.items = new ArrayList<>();
         res.items.clear();
 
         for (int i = from; i < to; i++) {
@@ -116,7 +128,6 @@ public class InvertedIndex implements Serializable {
     }
 
     /** Número de inlinks (páginas do índice que têm outlink para esta URL). */
-    // depois
     public synchronized int inlinks(String url) {
         if (url == null) return 0;
         int count = 0;
@@ -125,8 +136,6 @@ public class InvertedIndex implements Serializable {
         }
         return count;
     }
-
-
 
     /** Pequeno snapshot de estatísticas do índice. */
     public synchronized StatsSnapshot stats() {
@@ -141,5 +150,4 @@ public class InvertedIndex implements Serializable {
 
     public synchronized PageDocument getDoc(String url) { return docs.get(url); }
     public int defaultPageSize() { return DEFAULT_PAGE_SIZE; }
-    //TEST
 }
