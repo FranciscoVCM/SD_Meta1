@@ -74,6 +74,7 @@ public class ClientApp {
                     s.barrelNumDocs.forEach((label, docs) ->
                             System.out.println("  " + label + " = " + docs));
                 }
+
                 if (s.barrelAvgLatencySec != null && !s.barrelAvgLatencySec.isEmpty()) {
                     System.out.println("\nLatência média por barrel (segundos):");
                     s.barrelAvgLatencySec.forEach((label, sec) -> {

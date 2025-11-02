@@ -23,6 +23,6 @@ public class StatsSnapshot implements Serializable {
     // labelDoBarrel -> numDocs
     public Map<String, Integer> barrelNumDocs = new LinkedHashMap<>();
 
-    // latência média por Barrel em décimos de segundo
+    // latência média por Barrel
     public Map<String, Double> barrelAvgLatencySec = new LinkedHashMap<>();
 }

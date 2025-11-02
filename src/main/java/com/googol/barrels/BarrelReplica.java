@@ -7,15 +7,37 @@ import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
 import com.googol.model.StatsSnapshot;
 
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 
 public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
-    private final InvertedIndex index = new InvertedIndex();
+    private InvertedIndex index = new InvertedIndex();
 
-    public BarrelReplica() throws RemoteException { }
+    // === Persistência
+    private final Path snapshotPath;
+    private static final int SAVE_EVERY = 100; // snapshot a cada N appends
+    private int appendedSinceSave = 0;
+
+    public BarrelReplica() throws RemoteException {
+        this("barrel-index.ser");             // delega no outro construtor
+    }
+
+    /** Construtor que recebe o caminho do snapshot */
+    public BarrelReplica(String snapshotFile) throws RemoteException {
+        super();                               // se quiseres porta fixa: super(20001);
+        this.snapshotPath = Path.of(snapshotFile);
+        loadIfExists();
+        // hook de shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try { synchronized (BarrelReplica.this) { persist(); } } catch (Exception ignored) {}
+        }));
+    }
 
     @Override
     public synchronized void append(CrawlResult r) throws RemoteException {
@@ -26,9 +48,14 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         doc.title    = (r.title == null || r.title.isBlank()) ? r.url : r.title;
         doc.text     = (r.text == null) ? "" : r.text;
         doc.snippet  = r.snippet;
-        doc.outlinks = r.outlinks;   // pode ser vazio neste exercício
+        doc.outlinks = r.outlinks;
 
         index.add(doc);
+
+        if (++appendedSinceSave >= SAVE_EVERY) {
+            appendedSinceSave = 0;
+            persist();
+        }
     }
 
     @Override
@@ -36,24 +63,58 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         return index.search(q);
     }
 
-    // antes
     @Override
     public synchronized int inlinks(String url) throws RemoteException {
         return index.inlinks(url);
     }
 
+    @Override
+    public synchronized List<String> backlinks(String url) throws RemoteException {
+        return index.backlinks(url);
+    }
 
     @Override
     public synchronized StatsSnapshot stats() throws RemoteException {
         return index.stats();
-
-    }
-    @Override
-    public synchronized List<String> backlinks(String url) throws RemoteException {
-        // delega no índice
-        return index.backlinks(url);
     }
 
+    // === Snapshotting
 
+    private void persist() {
+        try {
+            Files.createDirectories(snapshotPath.getParent() == null ? Path.of(".") : snapshotPath.getParent());
+            try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(snapshotPath))) {
+                out.writeObject(index);
+            }
+        } catch (Exception e) {
+            System.err.println("[Barrel] snapshot failed: " + e);
+        }
+    }
+
+    private void loadIfExists() {
+        try {
+            if (Files.exists(snapshotPath)) {
+                try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(snapshotPath))) {
+                    Object obj = in.readObject();
+                    if (obj instanceof InvertedIndex loaded) {
+                        this.index = loaded;
+                        System.out.println("[Barrel] Restored snapshot: " + snapshotPath.toAbsolutePath());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[Barrel] snapshot load failed: " + e);
+        }
+    }
+
+    // grava um snapshot no shutdown “limpo”
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                synchronized (BarrelReplica.this) { persist(); }
+            } catch (Exception ignored) {}
+        }));
+    }
 }
+
 

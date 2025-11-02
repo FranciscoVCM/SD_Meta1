@@ -1,61 +1,97 @@
 package com.googol.downloaders;
 
 import com.googol.barrels.Barrel;
+import com.googol.barrels.ReliableMulticast;
 import com.googol.model.CrawlResult;
 import com.googol.model.StatsSnapshot;
 
-import java.rmi.RemoteException;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DownloaderManager {
 
-    // === Config do crawler (ajusta à vontade)
-    private static final int NUM_WORKERS = 2;
-    private static final int MAX_PAGES   = 500;  // orçamento total de páginas
-    private static final int MAX_DEPTH   = 4;    // 0 = só a seed
+    // === Config do crawler===
+    private static final int MAX_PAGES = 500;   // orçamento total de páginas
+    private static final int MAX_DEPTH = 4;     // profundidade máxima
 
+    // nº de workers configurável (default 1)
+    private volatile int numWorkers = 1;
+
+    // réplicas destino (Barrels)
     private final List<Barrel> barrels;
 
-    // Tarefa = URL + profundidade
+    // multicast fiável (retries per-replica)
+    private final ReliableMulticast rmcast = new ReliableMulticast();
+
+    // ---- Fila de tarefas (URL + depth) ----
     private static final class Task {
         final String url;
         final int depth;
         Task(String url, int depth) { this.url = url; this.depth = depth; }
     }
-
     private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
 
-    private final ThreadPoolExecutor pool;        // precisamos disto p/ activeCount
-    private final AtomicInteger rr = new AtomicInteger();
+    // ---- Execução/estado ----
+    private final ThreadPoolExecutor pool =
+            new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+    private final AtomicInteger rr = new AtomicInteger();          // round-robin para Barrels
     private final AtomicInteger pagesIndexed = new AtomicInteger();
+    private volatile boolean started = false;
 
     public DownloaderManager(List<Barrel> barrels) {
-        this.barrels = barrels;
-        this.pool = new ThreadPoolExecutor(
-                NUM_WORKERS, NUM_WORKERS, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>()
-        );
-        this.pool.prestartAllCoreThreads();
+        this.barrels = Objects.requireNonNull(barrels);
+        // aplica tamanhos iniciais do pool ao default numWorkers
+        pool.setCorePoolSize(numWorkers);
+        pool.setMaximumPoolSize(numWorkers);
     }
 
-    public void start() {
-        for (int i = 0; i < NUM_WORKERS; i++) pool.submit(this::worker);
+    /** Define nº de workers. Chama isto ANTES de start(). */
+    public void setNumWorkers(int n) {
+        int v = Math.max(1, n);
+        this.numWorkers = v;
+        if (!started) {
+            pool.setCorePoolSize(v);
+            pool.setMaximumPoolSize(v);
+        }
     }
 
+    /** Arranca os workers (idempotente). */
+    public synchronized void start() {
+        if (started) return;
+        started = true;
+        for (int i = 0; i < numWorkers; i++) {
+            pool.submit(this::worker);
+        }
+        pool.prestartAllCoreThreads();
+    }
+
+    /** Pára tudo. */
     public void stop() { pool.shutdownNow(); }
 
-    private Barrel pick() throws RemoteException {
-        if (barrels == null || barrels.isEmpty())
-            throw new RemoteException("No barrels available");
+    // ---------- API pública ----------
+    /** Usado pela Gateway (index) – depth=0. */
+    public void submit(String url) { submit(url, 0); }
+
+    /** Usado pelo DownloaderStandalone/Gateway via RMI. */
+    public void enqueue(String url, int depth) { submit(url, depth); }
+
+    /** Stats para o ClientApp. */
+    public StatsSnapshot stats() {
+        StatsSnapshot s = new StatsSnapshot();
+        s.pagesIndexed      = pagesIndexed.get();
+        s.urlsInQueue       = queue.size();
+        s.activeDownloaders = pool.getActiveCount();
+        return s;
+    }
+    // ---------- fim API pública ----------
+
+    private Barrel pick() throws Exception {
+        if (barrels.isEmpty()) throw new Exception("No barrels available");
         int i = Math.abs(rr.getAndIncrement()) % barrels.size();
         return barrels.get(i);
     }
-
-    // API chamada pelo Gateway
-    public void submit(String url) { submit(url, 0); }
 
     private void submit(String url, int depth) {
         if (url == null || url.isBlank()) return;
@@ -63,18 +99,13 @@ public class DownloaderManager {
         if (depth > MAX_DEPTH) return;
         if (pagesIndexed.get() >= MAX_PAGES) return;
 
+        // evita reprocessar a mesma URL
         if (seen.add(url)) {
             queue.offer(new Task(url, depth));
             System.out.println("[Downloader] enqueued (d=" + depth + "): " + url);
+            // acorda algum worker à espera
+            synchronized (this) { this.notifyAll(); }
         }
-    }
-
-    public StatsSnapshot stats() {
-        StatsSnapshot s = new StatsSnapshot();
-        s.pagesIndexed      = pagesIndexed.get();
-        s.urlsInQueue       = queue.size();
-        s.activeDownloaders = pool.getActiveCount();
-        return s;
     }
 
     private void worker() {
@@ -89,15 +120,15 @@ public class DownloaderManager {
                 System.out.println("[Downloader] crawled: " + r.url +
                         " (" + r.terms.size() + " terms, " + r.outlinks.size() + " outlinks, depth=" + t.depth + ")");
 
-                // 2) tenta indexar
-                try {
-                    pick().append(r);
+                // 2) reliable multicast (retenta por réplica)
+                boolean storedSomewhere = rmcast.fanout(barrels, r);
+                if (storedSomewhere) {
                     pagesIndexed.incrementAndGet();
-                } catch (RemoteException e) {
-                    System.err.println("[Downloader] append failed: " + e);
+                } else {
+                    System.err.println("[Downloader] fanout: no replica accepted append (skipping count)");
                 }
 
-                // 3) tentar submeter outlinks (mesmo que o append falhe)
+                // 3) submeter outlinks
                 int nextDepth = t.depth + 1;
                 if (nextDepth <= MAX_DEPTH && pagesIndexed.get() < MAX_PAGES) {
                     if (!r.outlinks.isEmpty()) {
@@ -115,4 +146,3 @@ public class DownloaderManager {
         }
     }
 }
-

@@ -19,6 +19,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     private final List<Barrel> barrels;
     private final AtomicInteger rr = new AtomicInteger();
     private final DownloaderManager downloader;
+    private final List<com.googol.downloaders.DownloaderControl> downloaders = new ArrayList<>();
 
     // === EX6: métricas
     private final ConcurrentHashMap<String, Integer> queryFreq = new ConcurrentHashMap<>();
@@ -28,6 +29,9 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     private String barrelLabel(int idx) {
         return "Barrel" + (idx + 1);
+    }
+    public void registerDownloader(com.googol.downloaders.DownloaderControl dc) {
+        if (dc != null) this.downloaders.add(dc);
     }
 
     public GatewayServer(List<Barrel> barrels) throws RemoteException {
@@ -63,7 +67,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         }
 
         // tenta em RR; se falhar, vai tentando os restantes
-        int start = Math.abs(rr.get()) % barrels.size();
+        int start = Math.abs(rr.getAndIncrement()) % barrels.size();
         for (int k = 0; k < barrels.size(); k++) {
             int idx = (start + k) % barrels.size();
             Barrel b = barrels.get(idx);
@@ -126,19 +130,41 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         out.numTerms    = totalTerms;
         out.numPostings = totalPostings;
 
-        // === (2) Métricas do DownloaderManager
-        StatsSnapshot d = downloader.stats();
-        out.pagesIndexed      = d.pagesIndexed;
-        out.urlsInQueue       = d.urlsInQueue;
-        out.activeDownloaders = d.activeDownloaders;
+        // === (2) Métricas de Downloaders
+        // 2a) Local (se tiveres um DownloaderManager embebido na Gateway)
+        int pagesIndexedSum = 0, urlsInQueueSum = 0, activeDlSum = 0;
+        if (this.downloader != null) {
+            try {
+                StatsSnapshot d = this.downloader.stats();
+                pagesIndexedSum += d.pagesIndexed;
+                urlsInQueueSum  += d.urlsInQueue;
+                activeDlSum     += d.activeDownloaders;
+            } catch (Exception ignore) { /* best-effort */ }
+        }
+
+        // 2b) Remotos (DownloaderStandalone via RMI)
+        for (com.googol.downloaders.DownloaderControl dc : this.downloaders) {
+            if (dc == null) continue;
+            try {
+                com.googol.model.StatsSnapshot d = dc.downloaderStats();
+                if (d != null) {
+                    pagesIndexedSum += d.pagesIndexed;
+                    urlsInQueueSum  += d.urlsInQueue;
+                    activeDlSum     += d.activeDownloaders;
+                }
+            } catch (Exception ignore) {
+                // downloader remoto offline — ignora
+            }
+        }
+        out.pagesIndexed      = pagesIndexedSum;
+        out.urlsInQueue       = urlsInQueueSum;
+        out.activeDownloaders = activeDlSum;
 
         // === (3) Top-10 queries (EX6)
-        // ordenar por frequência desc; em empate, alfabética
         PriorityQueue<Map.Entry<String,Integer>> pq =
                 new PriorityQueue<>((a,b) -> {
                     int c = Integer.compare(b.getValue(), a.getValue());
-                    if (c != 0) return c;
-                    return a.getKey().compareTo(b.getKey());
+                    return (c != 0) ? c : a.getKey().compareTo(b.getKey());
                 });
         pq.addAll(queryFreq.entrySet());
         int limit = 10;
