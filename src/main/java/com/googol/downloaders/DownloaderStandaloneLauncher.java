@@ -43,6 +43,22 @@ public class DownloaderStandaloneLauncher {
         RmiUtils.bind("DownloaderA", ctrl);
         System.out.println("DownloaderStandalone up as DownloaderA");
 
+        try {
+            // tenta registar no Gateway; faz retry suave se o Gateway ainda não estiver up
+            for (int j = 0; j < 10; i++) {
+                try {
+                    var gw = com.googol.util.RmiUtils.lookup("Gateway", com.googol.gateway.Gateway.class);
+                    gw.registerDownloader(ctrl);           // passa o stub remoto
+                    System.out.println("[Standalone] registado no Gateway.");
+                    break;
+                } catch (Exception e) {
+                    Thread.sleep(1000);                    // 1s retry
+                }
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+
         // submeter seeds locais (arranque)
         for (String s : seeds) {
             ctrl.enqueue(s, 0);

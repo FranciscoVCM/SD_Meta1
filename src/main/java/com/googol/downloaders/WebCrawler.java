@@ -2,7 +2,6 @@ package com.googol.downloaders;
 
 import com.googol.model.CrawlResult;
 import com.googol.util.TextUtils;
-
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -12,38 +11,31 @@ import org.jsoup.select.Elements;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Crawler baseado em Jsoup.
- * - Respeita followRedirects
- * - Timeout e maxBodySize razoáveis
- * - Extrai título, texto limpo, termos, snippet e até 50 outlinks absolutos (http/https)
- */
+/** Downloader simples usando jsoup. */
 public class WebCrawler {
 
+    // identifica-te como crawler académico
     private static final String UA =
             "GoogolBot/1.0 (+https://example.edu/SD_Meta1; student crawler)";
-
-    private static final int TIMEOUT_MS     = 8_000;         // 8s
-    private static final int MAX_BODY_BYTES = 2 * 1024 * 1024; // 2MB
-    private static final int MAX_OUTLINKS   = 50;
 
     public static CrawlResult crawl(String url) {
         CrawlResult r = new CrawlResult();
         r.url = url;
 
         try {
+            // 1) Fetch com limites sensatos
             Connection.Response resp = Jsoup
                     .connect(url)
                     .userAgent(UA)
-                    .timeout(TIMEOUT_MS)
+                    .timeout(8000)               // 8s
+                    .maxBodySize(2_000_000)      // ~2MB
+                    .ignoreContentType(true)     // vamos verificar nós o tipo
                     .followRedirects(true)
-                    .ignoreHttpErrors(true)   // queremos ver códigos != 200 também
-                    .maxBodySize(MAX_BODY_BYTES)
                     .execute();
 
-            // Só processamos HTML
-            String ct = resp.contentType();
-            if (ct == null || !ct.toLowerCase().contains("text/html")) {
+            // 2) Ignorar conteúdos não-HTML
+            String ct = resp.contentType() == null ? "" : resp.contentType().toLowerCase();
+            if (!ct.contains("text/html")) {
                 r.title    = url;
                 r.text     = "";
                 r.snippet  = "";
@@ -52,26 +44,29 @@ public class WebCrawler {
                 return r;
             }
 
+            // 3) Parse HTML
             Document doc = resp.parse();
 
-            String title = safe(doc.title());
-            String text  = (doc.body() != null) ? doc.body().text() : "";
+            String title = doc.title();
+            String text  = doc.text(); // jsoup já remove tags/scripts/estilos
 
+            // termos/snippet com as tuas utilidades
             List<String> terms   = TextUtils.tokenize(text);
-            String       snippet = TextUtils.makeSnippet(text, terms);
+            String snippet       = TextUtils.makeSnippet(text, terms);
 
-            // Outlinks absolutos (Jsoup resolve "abs:href" usando <base> ou URL da resposta)
-            List<String> out = new ArrayList<>();
+            // 4) Extrair ligações absolutas (até 50)
+            List<String> out = new ArrayList<>(50);
             Elements links = doc.select("a[href]");
             for (Element a : links) {
-                String href = a.attr("abs:href");
-                if (isHttp(href)) {
-                    out.add(href);
-                    if (out.size() >= MAX_OUTLINKS) break;
-                }
+                String abs = a.attr("abs:href");
+                if (abs == null || abs.isBlank()) continue;
+                if (!abs.startsWith("http://") && !abs.startsWith("https://")) continue;
+                out.add(abs);
+                if (out.size() >= 50) break;
             }
 
-            r.title    = title.isBlank() ? url : title;
+            // 5) Preencher resultado
+            r.title    = (title != null && !title.isBlank()) ? title : url;
             r.text     = text;
             r.snippet  = snippet;
             r.terms    = terms;
@@ -85,15 +80,5 @@ public class WebCrawler {
             r.outlinks = List.of();
         }
         return r;
-    }
-
-    private static String safe(String s) {
-        return (s == null) ? "" : s.trim();
-    }
-
-    private static boolean isHttp(String href) {
-        if (href == null || href.isBlank()) return false;
-        String h = href.toLowerCase();
-        return h.startsWith("http://") || h.startsWith("https://");
     }
 }
