@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 public class ClientApp {
     public static void main(String[] args) throws Exception {
-        // Gateway remoto (ENV com defaults)
+        // Gateway remoto
         String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "127.0.0.1");
         int    gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT", "1099"));
         Gateway gw = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);

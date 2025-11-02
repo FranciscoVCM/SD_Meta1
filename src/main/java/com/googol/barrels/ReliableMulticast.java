@@ -6,9 +6,9 @@ import java.rmi.RemoteException;
 import java.util.List;
 
 /**
- * Fanout at least once para todas as réplicas Barrel.
- * – Retenta por réplica com backoff exponencial leve.
- * – Devolve true se pelo menos UMA réplica receber (útil para métricas).
+ * Fanout at least once para todas as réplicas Barrel
+ * – Tenta varias vezes por réplica com backoff exponencial leve
+ * – Devolve true se pelo menos uma réplica receber
  */
 public class ReliableMulticast {
 

@@ -23,7 +23,6 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     // === EX6: métricas
     private final ConcurrentHashMap<String, Integer> queryFreq = new ConcurrentHashMap<>();
-    // por índice do barrel (0..N-1)
     private final ConcurrentHashMap<Integer, LongAdder> barrelOkCount = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, LongAdder> barrelLatencyMs = new ConcurrentHashMap<>();
 
@@ -66,7 +65,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             queryFreq.merge(key, 1, Integer::sum);
         }
 
-        // tenta em RR; se falhar, vai tentando os restantes
+        // tenta em round robin e se falhar, vai tentando os restantes
         int start = Math.abs(rr.getAndIncrement()) % barrels.size();
         for (int k = 0; k < barrels.size(); k++) {
             int idx = (start + k) % barrels.size();
@@ -75,7 +74,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             try {
                 SearchResult r = b.search(q);
 
-                // === EX6: registar latência do barrel (só em sucesso)
+                //registar latência do barrel
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
                 barrelOkCount.computeIfAbsent(idx, i -> new LongAdder()).increment();
                 barrelLatencyMs.computeIfAbsent(idx, i -> new LongAdder()).add(elapsedMs);
@@ -112,7 +111,6 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         StatsSnapshot out = new StatsSnapshot();
 
         // === (1) Métricas dos Barrels (numDocs/numTerms/numPostings)
-        //       e também preencher barrelNumDocs (EX6)
         int totalDocs = 0, totalTerms = 0, totalPostings = 0;
         for (int i = 0; i < barrels.size(); i++) {
             try {
@@ -131,7 +129,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         out.numPostings = totalPostings;
 
         // === (2) Métricas de Downloaders
-        // 2a) Local (se tiveres um DownloaderManager embebido na Gateway)
+        // 2a) Local
         int pagesIndexedSum = 0, urlsInQueueSum = 0, activeDlSum = 0;
         if (this.downloader != null) {
             try {
@@ -160,7 +158,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         out.urlsInQueue       = urlsInQueueSum;
         out.activeDownloaders = activeDlSum;
 
-        // === (3) Top-10 queries (EX6)
+        // === (3) Top-10 queries
         PriorityQueue<Map.Entry<String,Integer>> pq =
                 new PriorityQueue<>((a,b) -> {
                     int c = Integer.compare(b.getValue(), a.getValue());
@@ -173,7 +171,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             out.topQueries.add(e.getKey() + " (" + e.getValue() + ")");
         }
 
-        // === (4) Latência média por Barrel em segundos (EX6)
+        // === (4) Latência média por Barrel em segundos
         for (int i = 0; i < barrels.size(); i++) {
             long cnt   = Optional.ofNullable(barrelOkCount.get(i)).map(LongAdder::sum).orElse(0L);
             long sumMs = Optional.ofNullable(barrelLatencyMs.get(i)).map(LongAdder::sum).orElse(0L);

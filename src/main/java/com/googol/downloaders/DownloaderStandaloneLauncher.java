@@ -16,7 +16,7 @@ public class DownloaderStandaloneLauncher {
 
         int i = 0;
 
-        // 2) barrels (tripletos host, port, name) até encontrar "--"
+        // 2) barrels até encontrar "--"
         List<Barrel> barrels = new ArrayList<>();
         while (i + 2 < args.length && !"--".equals(args[i])) {
             String host = args[i++];                   // ex.: 192.168.1.81
@@ -46,7 +46,7 @@ public class DownloaderStandaloneLauncher {
         RmiUtils.bind("DownloaderA", ctrl, 1099);
         System.out.println("DownloaderStandalone up as DownloaderA (IP=" + myIp + ")");
 
-        // 6) registar-se no Gateway (host/port via env, c/ defaults)
+        // 6) registar-se no Gateway
         String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "192.168.1.81"); // HOST
         int    gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT","1099"));
 

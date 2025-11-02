@@ -5,7 +5,6 @@ import com.googol.util.RmiUtils;
 public class BarrelLauncher {
     public static void main(String[] args) throws Exception {
         // IP que esta JVM vai anunciar nos stubs RMI
-        // (ENV > default 127.0.0.1 — não consome args)
         String hostIp = System.getenv().getOrDefault("RMI_HOSTNAME", "127.0.0.1");
         System.setProperty("java.rmi.server.hostname", hostIp);
 

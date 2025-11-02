@@ -9,11 +9,7 @@ import com.googol.util.TextUtils;
 import java.io.Serializable;
 import java.util.*;
 
-/**
- * Índice invertido simples.
- *  - postings: termo -> (url -> tf)
- *  - docs:     url   -> PageDocument (título/snippet/outlinks)
- */
+
 public class InvertedIndex implements Serializable {
 
     // termo -> (url -> tf)
@@ -33,7 +29,7 @@ public class InvertedIndex implements Serializable {
         // obter doc antigo (se existir) antes de substituir
         PageDocument old = docs.put(doc.url, doc);
 
-        // retirar arestas antigas deste doc (se reindexares a mesma URL)
+        // retirar arestas antigas deste doc
         if (old != null && old.outlinks != null) {
             for (String to : old.outlinks) {
                 Set<String> S = inlinksMap.get(to);
@@ -101,7 +97,6 @@ public class InvertedIndex implements Serializable {
             score.put(url, s);
         }
 
-        // === Exercício 4: ranking principal por inlinks; desempate por TF e, por fim, por URL
         List<String> urls = new ArrayList<>(candidate);
         urls.sort((a, b) -> {
             int ia = inlinks(a);

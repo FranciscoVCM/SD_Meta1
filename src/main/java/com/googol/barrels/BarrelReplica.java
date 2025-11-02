@@ -19,7 +19,6 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
     private InvertedIndex index = new InvertedIndex();
 
-    // === Persistência
     private final Path snapshotPath;
     private static final int SAVE_EVERY = 100; // snapshot a cada N appends
     private int appendedSinceSave = 0;
@@ -30,10 +29,9 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
     /** Construtor que recebe o caminho do snapshot */
     public BarrelReplica(String snapshotFile) throws RemoteException {
-        super();                               // se quiseres porta fixa: super(20001);
+        super();
         this.snapshotPath = Path.of(snapshotFile);
         loadIfExists();
-        // hook de shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try { synchronized (BarrelReplica.this) { persist(); } } catch (Exception ignored) {}
         }));

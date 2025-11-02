@@ -15,16 +15,16 @@ public class DownloaderManager {
     private static final int MAX_PAGES = 500;   // orçamento total de páginas
     private static final int MAX_DEPTH = 4;     // profundidade máxima
 
-    // nº de workers configurável (default 1)
+    // nº de workers/robots configurável
     private volatile int numWorkers = 1;
 
     // réplicas destino (Barrels)
     private final List<Barrel> barrels;
 
-    // multicast fiável (retries per-replica)
+    // multicast
     private final ReliableMulticast rmcast = new ReliableMulticast();
 
-    // ---- Fila de tarefas (URL + depth) ----
+    //Fila de tarefas (URL + depth)
     private static final class Task {
         final String url;
         final int depth;
@@ -33,7 +33,6 @@ public class DownloaderManager {
     private final BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
 
-    // ---- Execução/estado ----
     private final ThreadPoolExecutor pool =
             new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
     private final AtomicInteger rr = new AtomicInteger();          // round-robin para Barrels
@@ -47,7 +46,7 @@ public class DownloaderManager {
         pool.setMaximumPoolSize(numWorkers);
     }
 
-    /** Define nº de workers. Chama isto ANTES de start(). */
+    /** Define nº de workers. */
     public void setNumWorkers(int n) {
         int v = Math.max(1, n);
         this.numWorkers = v;
@@ -57,7 +56,7 @@ public class DownloaderManager {
         }
     }
 
-    /** Arranca os workers (idempotente). */
+    /** Arranca os workers*/
     public synchronized void start() {
         if (started) return;
         started = true;
@@ -67,11 +66,10 @@ public class DownloaderManager {
         pool.prestartAllCoreThreads();
     }
 
-    /** Pára tudo. */
+    /** Para tudo. */
     public void stop() { pool.shutdownNow(); }
 
-    // ---------- API pública ----------
-    /** Usado pela Gateway (index) – depth=0. */
+    /** Usado pela Gateway – depth=0. */
     public void submit(String url) { submit(url, 0); }
 
     /** Usado pelo DownloaderStandalone/Gateway via RMI. */
@@ -85,7 +83,6 @@ public class DownloaderManager {
         s.activeDownloaders = pool.getActiveCount();
         return s;
     }
-    // ---------- fim API pública ----------
 
     private Barrel pick() throws Exception {
         if (barrels.isEmpty()) throw new Exception("No barrels available");
@@ -120,7 +117,7 @@ public class DownloaderManager {
                 System.out.println("[Downloader] crawled: " + r.url +
                         " (" + r.terms.size() + " terms, " + r.outlinks.size() + " outlinks, depth=" + t.depth + ")");
 
-                // 2) reliable multicast (retenta por réplica)
+                // 2) reliable multicast
                 boolean storedSomewhere = rmcast.fanout(barrels, r);
                 if (storedSomewhere) {
                     pagesIndexed.incrementAndGet();

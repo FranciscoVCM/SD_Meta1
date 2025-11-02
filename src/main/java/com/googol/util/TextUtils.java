@@ -76,7 +76,6 @@ public final class TextUtils {
         return t == null || t.isBlank() || STOP.contains(t);
     }
 
-    /** Snippet tosco: devolve ~160 chars centrados na 1ª ocorrência de algum termo. */
     public static String makeSnippet(String text, List<String> terms) {
         if (text == null || text.isBlank()) return "";
         String low = text.toLowerCase();
