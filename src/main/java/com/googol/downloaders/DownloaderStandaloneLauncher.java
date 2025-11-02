@@ -1,6 +1,7 @@
 package com.googol.downloaders;
 
 import com.googol.barrels.Barrel;
+import com.googol.gateway.Gateway;
 import com.googol.util.RmiUtils;
 
 import java.util.ArrayList;
@@ -8,61 +9,67 @@ import java.util.List;
 
 public class DownloaderStandaloneLauncher {
     public static void main(String[] args) throws Exception {
-        System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+        // 1) hostname do stub deste processo (usa IP da VM quando correres na VM)
+        String myIp = System.getenv().getOrDefault("RMI_HOSTNAME",
+                (args.length > 0 ? args[0] : "127.0.0.1"));
+        System.setProperty("java.rmi.server.hostname", myIp);
+
         int i = 0;
 
-        // === Parte 1: barrels (pares <nome> <porta> até encontrar "--")
+        // 2) barrels (tripletos host, port, name) até encontrar "--"
         List<Barrel> barrels = new ArrayList<>();
-        while (i + 1 < args.length && !"--".equals(args[i])) {
-            String name = args[i++];
-            int port = Integer.parseInt(args[i++]);   // <- agora o i avança certinho em pares
-            Barrel b = RmiUtils.lookup("localhost", port, name, Barrel.class);
+        while (i + 2 < args.length && !"--".equals(args[i])) {
+            String host = args[i++];                   // ex.: 192.168.1.81
+            int    port = Integer.parseInt(args[i++]); // ex.: 1099
+            String name = args[i++];                   // ex.: Barrel1
+            Barrel b = RmiUtils.lookup(host, port, name, Barrel.class);
             barrels.add(b);
         }
 
         if (barrels.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Uso: <BarrelName1> <Port1> [<BarrelName2> <Port2> ...] -- <seed1> [seed2 ...]");
+                    "Uso: <B_HOST> <B_PORT> <B_NAME> [<B_HOST> <B_PORT> <B_NAME> ...] -- <seed1> [seed2 ...]");
         }
 
-        // separador obrigatório "--"
+        // 3) separador obrigatório
         if (i < args.length && "--".equals(args[i])) i++;
 
-        // === Parte 2: seeds (0..n)
+        // 4) seeds
         List<String> seeds = new ArrayList<>();
         while (i < args.length) seeds.add(args[i++]);
 
-        // === Manager (+ opcionalmente expor controlo RMI)
+        // 5) manager + controlo
         DownloaderManager dm = new DownloaderManager(barrels);
-        // se tiveres o método:
-        // dm.setNumWorkers(1);
         dm.start();
 
-        // expor controlo (para uma Gateway futura poder fazer enqueue remoto, se quiseres)
         DownloaderControl ctrl = new DownloaderControlImpl(dm);
-        RmiUtils.bind("DownloaderA", ctrl);
-        System.out.println("DownloaderStandalone up as DownloaderA");
+        RmiUtils.bind("DownloaderA", ctrl, 1099);
+        System.out.println("DownloaderStandalone up as DownloaderA (IP=" + myIp + ")");
+
+        // 6) registar-se no Gateway (host/port via env, c/ defaults)
+        String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "192.168.1.81"); // HOST
+        int    gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT","1099"));
 
         try {
-            // tenta registar no Gateway; faz retry suave se o Gateway ainda não estiver up
-            for (int j = 0; j < 10; i++) {
+            for (int t = 0; t < 10; t++) {
                 try {
-                    var gw = com.googol.util.RmiUtils.lookup("Gateway", com.googol.gateway.Gateway.class);
-                    gw.registerDownloader(ctrl);           // passa o stub remoto
-                    System.out.println("[Standalone] registado no Gateway.");
+                    Gateway gw = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
+                    gw.registerDownloader(ctrl);
+                    System.out.println("[Standalone] registado no Gateway @" + gwHost + ":" + gwPort);
                     break;
                 } catch (Exception e) {
-                    Thread.sleep(1000);                    // 1s retry
+                    Thread.sleep(1000);
                 }
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
 
-        // submeter seeds locais (arranque)
+        // 7) submeter seeds locais
         for (String s : seeds) {
             ctrl.enqueue(s, 0);
             System.out.println("[Standalone] submitted seed: " + s);
         }
     }
 }
+

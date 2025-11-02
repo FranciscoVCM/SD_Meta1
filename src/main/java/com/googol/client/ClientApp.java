@@ -2,39 +2,42 @@ package com.googol.client;
 
 import com.googol.gateway.Gateway;
 import com.googol.model.SearchQuery;
-import com.googol.model.SearchResult;   // <- NOVO
+import com.googol.model.SearchResult;
 import com.googol.util.RmiUtils;
 
-import java.util.Arrays;               // <- NOVO
+import java.util.Arrays;
 
 public class ClientApp {
     public static void main(String[] args) throws Exception {
-        Gateway gw = RmiUtils.lookup("Gateway", Gateway.class);
+        // Gateway remoto (ENV com defaults)
+        String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "127.0.0.1");
+        int    gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT", "1099"));
+        Gateway gw = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
+
         if (args.length == 0) {
-            System.out.println("usage: index <url> | search <terms...>");
+            System.out.println("usage: index <url> | search [page] <terms...> | stats | inlinks <url> | backlinks <url>");
             return;
         }
+
         switch (args[0]) {
             case "index" -> {
                 if (args.length < 2) { System.out.println("index <url>"); return; }
                 gw.indexUrl(args[1]);
             }
+
             case "search" -> {
                 if (args.length < 2) {
                     System.out.println("usage: search [page] <terms...>");
                     return;
                 }
-
                 int page = 1;
                 int termsStart = 1;
-
-                // se o 2º token for um número, interpretamos como página
                 try {
                     if (args.length >= 3) {
                         page = Integer.parseInt(args[1]);
                         termsStart = 2;
                     }
-                } catch (NumberFormatException ignored) { /* continua com page=1 */ }
+                } catch (NumberFormatException ignored) { /* fica page=1 */ }
 
                 String terms = String.join(" ", Arrays.copyOfRange(args, termsStart, args.length));
                 SearchQuery q = new SearchQuery(terms, page);
@@ -50,9 +53,9 @@ public class ClientApp {
                     System.out.println();
                 }
             }
+
             case "stats" -> {
-                var gaw = RmiUtils.lookup("Gateway", Gateway.class);
-                var s = gaw.stats();
+                var s = gw.stats();
                 System.out.println("pagesIndexed = " + s.pagesIndexed);
                 System.out.println("urlsInQueue  = " + s.urlsInQueue);
                 System.out.println("activeDl     = " + s.activeDownloaders);
@@ -60,7 +63,6 @@ public class ClientApp {
                 System.out.println("numTerms     = " + s.numTerms);
                 System.out.println("numPostings  = " + s.numPostings);
 
-                // === EX6: extra
                 if (s.topQueries != null && !s.topQueries.isEmpty()) {
                     System.out.println("\nTop queries:");
                     int i = 1;
@@ -82,17 +84,16 @@ public class ClientApp {
                         System.out.println("  " + label + " = " + val);
                     });
                 }
-
             }
+
             case "inlinks" -> {
                 if (args.length < 2) { System.out.println("usage: inlinks <url>"); return; }
-                var gow = RmiUtils.lookup("Gateway", Gateway.class);
-                System.out.println("inlinks(" + args[1] + ") = " + gow.inlinks(args[1]));
+                System.out.println("inlinks(" + args[1] + ") = " + gw.inlinks(args[1]));
             }
+
             case "backlinks" -> {
                 if (args.length < 2) { System.out.println("usage: backlinks <url>"); return; }
-                var gaw = RmiUtils.lookup("Gateway", Gateway.class);
-                var list = gaw.backlinks(args[1]);
+                var list = gw.backlinks(args[1]);
                 System.out.println("Backlinks (" + list.size() + "):");
                 for (String u : list) System.out.println(" - " + u);
             }
