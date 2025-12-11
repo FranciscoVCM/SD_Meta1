@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Live Stream</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        textarea, input[type="text"], input[type="number"], button, select {
+            width: 100%;
+            max-width: 500px;
+            margin-top: .5rem;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 1rem;
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            max-width: 600px;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: .5rem;
+            border-bottom: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Queue size (real time)</h2>
+<h3 id="queueValue">loading...</h3>
+
+<hr>
+
+<h2>Top 10 Pesquisas</h2>
+<ul id="topQueries"></ul>
+
+<h2>Latência média por Barrel</h2>
+<ul id="latencies"></ul>
+
+<h2>Última Pesquisa</h2>
+<p id="lastSearch">loading...</p>
+
+<script>
+    let socket = new SockJS("/ws");
+    let stomp = Stomp.over(socket);
+
+    stomp.connect({}, () => {
+        // -------------------------
+        // QUEUE SIZE
+        // -------------------------
+        stomp.subscribe("/topic/queue", msg => {
+            document.getElementById("queueValue").innerText = msg.body;
+        });
+
+        // -------------------------
+        // STATS COMPLETAS
+        // -------------------------
+        stomp.subscribe("/topic/stats", msg => {
+            let data = JSON.parse(msg.body);
+
+            // ---- TOP QUERIES ----
+            let tqHtml = "";
+            data.topQueries.forEach(q => {
+                tqHtml += `<li>${q.term} — ${q.count} vezes</li>`;
+            });
+            document.getElementById("topQueries").innerHTML = tqHtml;
+
+            // ---- LATÊNCIAS ----
+            let latHtml = "";
+            data.barrels.forEach(b => {
+                latHtml += `<li>${b.name}: ${b.avgLatency.toFixed(2)}s</li>`;
+            });
+            document.getElementById("latencies").innerHTML = latHtml;
+
+            // ---- ÚLTIMA PESQUISA ----
+            if (data.lastSearchMs !== undefined)
+                document.getElementById("lastSearch").innerText =
+                    data.lastSearchMs + " ms";
+        });
+    });
+</script>
+
+</body>
+</html>
+

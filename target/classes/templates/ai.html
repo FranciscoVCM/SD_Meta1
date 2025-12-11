@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>IA Summary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        textarea, input[type="text"], input[type="number"], button, select {
+            width: 100%;
+            max-width: 500px;
+            margin-top: .5rem;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 1rem;
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            max-width: 600px;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: .5rem;
+            border-bottom: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Gerar Resumo com IA (Ollama)</h2>
+
+<form action="/ai/summary" method="post">
+    <textarea name="text" rows="6" cols="80"
+              placeholder="Escreve texto para resumir..."
+              th:text="${input}">
+    </textarea>
+    <br><br>
+    <button type="submit">Gerar Resumo</button>
+</form>
+
+<div th:if="${summary}">
+    <h3>Resumo Gerado:</h3>
+    <p th:text="${summary}"></p>
+</div>
+
+</body>
+</html>
