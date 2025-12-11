@@ -27,11 +27,12 @@
     <dependencies>
 
         <!-- SPRING WEB (controllers HTTP) -->
+        <!--
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
+        -->
         <!-- THYMELEAF (templates HTML) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -79,11 +80,12 @@
         <plugins>
 
             <!-- Plugin Spring Boot -->
+            <!--
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-
+            -->
             <!-- Maven Compiler -->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
