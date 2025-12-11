@@ -9,7 +9,10 @@ import java.util.List;
 
 public class GatewayLauncher {
     public static void main(String[] args) throws Exception {
-
+        System.out.println("REAL HOSTNAME=" + System.getProperty("java.rmi.server.hostname"));
+        System.out.println("ENV HOST=" + System.getenv("RMI_HOSTNAME"));
+        System.out.println("B1=" + System.getenv("B1_HOST"));
+        System.out.println("B2=" + System.getenv("B2_HOST"));
         // 1) Aplica o IP correto ao stub RMI
         String myIp = System.getenv().getOrDefault("RMI_HOSTNAME", "127.0.0.1");
         System.setProperty("java.rmi.server.hostname", myIp);

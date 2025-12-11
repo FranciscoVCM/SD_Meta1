@@ -13,7 +13,7 @@ public class ClientApp {
     // ===== Helper seguro para conectar à Gateway =====
     private static Gateway connect() {
         try {
-            String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "127.0.0.1");
+            String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "192.168.1.79");
             int gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT", "1099"));
             return RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
         } catch (Exception e) {
