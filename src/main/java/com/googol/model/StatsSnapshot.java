@@ -15,6 +15,7 @@ public class StatsSnapshot implements Serializable {
     public int numDocs;
     public int numTerms;
     public int numPostings;
+    public long lastSearchMs;
 
     // top-10 termos/queries mais usados (ordenados por frequência desc)
     public List<String> topQueries = new ArrayList<>();

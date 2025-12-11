@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Googol Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        textarea, input[type="text"], input[type="number"], button, select {
+            width: 100%;
+            max-width: 500px;
+            margin-top: .5rem;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 1rem;
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            max-width: 600px;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: .5rem;
+            border-bottom: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Googol Search</h1>
+
+<form action="/search" method="get">
+    <input type="text" name="terms" placeholder="Search terms..." required>
+    <button type="submit">Search</button>
+</form>
+
+<form action="/index" method="post" style="margin-top:20px;">
+    <input type="text" name="url" placeholder="Index URL...">
+    <button type="submit">Index</button>
+</form>
+
+<div th:if="${error}">
+    <p style="color:red" th:text="${error}"></p>
+</div>
+
+<div th:if="${msg}">
+    <p style="color:green" th:text="${msg}"></p>
+</div>
+
+</body>
+</html>

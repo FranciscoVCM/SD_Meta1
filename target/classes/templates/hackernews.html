@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>HackerNews Search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    textarea, input[type="text"], input[type="number"], button, select {
+      width: 100%;
+      max-width: 500px;
+      margin-top: .5rem;
+      box-sizing: border-box;
+    }
+
+    body {
+      padding: 1rem;
+      font-family: Arial, sans-serif;
+    }
+
+    table {
+      width: 100%;
+      max-width: 600px;
+      border-collapse: collapse;
+    }
+
+    td, th {
+      padding: .5rem;
+      border-bottom: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+<h2>Resultados HackerNews para "<span th:text="${term}"></span>"</h2>
+
+<ul>
+  <li th:each="i : ${items}">
+    <b th:text="${i.title}"></b><br>
+    <a th:href="${i.url}" target="_blank">Abrir link</a>
+    <br><br>
+  </li>
+</ul>
+
+</body>
+</html>

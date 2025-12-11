@@ -165,7 +165,7 @@ public class InvertedIndex implements Serializable {
         if (url == null) return List.of();
         Set<String> s = inlinksMap.get(url);
         if (s == null || s.isEmpty()) return List.of();
-        return new ArrayList<>(s); // ordem arbitrária está ok; podes ordenar se quiseres
+        return new ArrayList<>(s);
     }
 
     public synchronized PageDocument getDoc(String url) { return docs.get(url); }

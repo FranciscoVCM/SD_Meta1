@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.LongAdder;
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     private final List<Barrel> barrels;
+    private volatile long lastSearchMs = -1;
     private final AtomicInteger rr = new AtomicInteger();
     private final DownloaderManager downloader;
     private final List<com.googol.downloaders.DownloaderControl> downloaders = new ArrayList<>();
@@ -78,7 +79,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
                 barrelOkCount.computeIfAbsent(idx, i -> new LongAdder()).increment();
                 barrelLatencyMs.computeIfAbsent(idx, i -> new LongAdder()).add(elapsedMs);
-
+                this.lastSearchMs = elapsedMs;
                 return r;
             } catch (RemoteException e) {
                 // tenta próximo
@@ -178,7 +179,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             double avgSec = (cnt > 0) ? ((sumMs * 1.0 / cnt) / 1000.0) : -1.0; // ms -> s
             out.barrelAvgLatencySec.put(barrelLabel(i), avgSec);
         }
-
+        out.lastSearchMs = this.lastSearchMs;
         return out;
     }
 

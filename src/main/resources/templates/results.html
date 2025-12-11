@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Googol Results</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        textarea, input[type="text"], input[type="number"], button, select {
+            width: 100%;
+            max-width: 500px;
+            margin-top: .5rem;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 1rem;
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            width: 100%;
+            max-width: 600px;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: .5rem;
+            border-bottom: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+<h1 th:text="'Results for: ' + ${terms}"></h1>
+
+<div th:if="${result == null}">
+    <p>Gateway offline.</p>
+</div>
+
+<table th:if="${result != null}">
+    <tr>
+        <th>#</th><th>Title</th><th>URL</th>
+    </tr>
+    <tr th:each="item,i : ${result.items}">
+        <td th:text="${i.index+1}"></td>
+        <td th:text="${item.title}"></td>
+        <td><a th:href="${item.url}" th:text="${item.url}"></a></td>
+    </tr>
+</table>
+
+</body>
+</html>
