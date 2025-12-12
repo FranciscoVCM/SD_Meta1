@@ -34,7 +34,12 @@ public class DownloaderManager {
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
 
     private final ThreadPoolExecutor pool =
-            new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+            new ThreadPoolExecutor(
+                    10,      // core inicial (pode ser qualquer coisa ≥ numWorkers)
+                    50,      // máximo (deixa margem)
+                    60L, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>()
+            );
     private final AtomicInteger rr = new AtomicInteger();          // round-robin para Barrels
     private final AtomicInteger pagesIndexed = new AtomicInteger();
     private volatile boolean started = false;

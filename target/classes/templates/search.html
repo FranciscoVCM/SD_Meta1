@@ -1,54 +1,106 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="pt" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
     <title>Googol Search</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
-        textarea, input[type="text"], input[type="number"], button, select {
-            width: 100%;
-            max-width: 500px;
-            margin-top: .5rem;
-            box-sizing: border-box;
-        }
-
         body {
-            padding: 1rem;
-            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #2e2a38; /* tom roxo escuro igual ao screenshot */
+            font-family: Arial, Helvetica, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            color: white;
         }
 
-        table {
-            width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
+        /* LOGO */
+        .logo {
+            font-size: 64px;
+            font-weight: bold;
+            margin-top: 120px;
+            margin-bottom: 40px;
+            color: #d8b4ff; /* Lilás suave estilo Google Dark Mode */
+            letter-spacing: 2px;
         }
 
-        td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
+        /* SEARCH BOX */
+        .search-box, .index-box {
+            width: 95%;
+            max-width: 700px;
+            background: white;
+            display: flex;
+            align-items: center;
+            border-radius: 30px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input,
+        .index-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 18px;
+            padding: 10px;
+        }
+
+        .search-btn, .index-btn {
+            background: #f1eef7;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        .search-btn:hover, .index-btn:hover {
+            background: #e0d9f0;
+        }
+
+        /* MENSAGENS */
+        .msg {
+            color: #6dff6d;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: #ff6d6d;
+            margin-top: 10px;
+        }
+
+        a {
+            color: #caaaff;
         }
     </style>
 </head>
+
 <body>
 
-<h1>Googol Search</h1>
+<div class="logo">Googol</div>
 
-<form action="/search" method="get">
-    <input type="text" name="terms" placeholder="Search terms..." required>
-    <button type="submit">Search</button>
+<!-- SEARCH FORM -->
+<form action="/search" method="get" class="search-box">
+    <input type="text" name="terms" placeholder="Search Googol..." required>
+    <button class="search-btn" type="submit">Search</button>
 </form>
 
-<form action="/index" method="post" style="margin-top:20px;">
-    <input type="text" name="url" placeholder="Index URL...">
-    <button type="submit">Index</button>
+<!-- INDEX FORM -->
+<form action="/index" method="post" class="index-box">
+    <input type="text" name="url" placeholder="Index a new URL...">
+    <button class="index-btn" type="submit">Index</button>
 </form>
 
-<div th:if="${error}">
-    <p style="color:red" th:text="${error}"></p>
-</div>
-
-<div th:if="${msg}">
-    <p style="color:green" th:text="${msg}"></p>
-</div>
+<!-- FEEDBACK -->
+<p class="msg" th:if="${msg}" th:text="${msg}"></p>
+<p class="error" th:if="${error}" th:text="${error}"></p>
 
 </body>
 </html>
+

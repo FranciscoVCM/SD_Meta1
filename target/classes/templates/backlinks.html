@@ -1,35 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Backlinks</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        textarea, input[type="text"], input[type="number"], button, select {
-            width: 100%;
-            max-width: 500px;
-            margin-top: .5rem;
-            box-sizing: border-box;
-        }
-
-        body {
-            padding: 1rem;
-            font-family: Arial, sans-serif;
-        }
-
-        table {
-            width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
-        }
-
-        td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
-        }
+        body { padding: 1rem; font-family: Arial, sans-serif; }
+        ul { max-width: 600px; }
+        li { margin-bottom: 6px; }
     </style>
 </head>
 <body>
+
+<h2>Backlinks para: <span th:text="${url}"></span></h2>
+
+<ul>
+    <li th:each="u : ${backlinks}">
+        <a th:href="${u}" th:text="${u}" target="_blank"></a>
+    </li>
+</ul>
+
+<a href="/">Voltar</a>
 
 </body>
 </html>
