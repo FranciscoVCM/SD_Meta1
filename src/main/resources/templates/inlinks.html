@@ -1,22 +1,77 @@
 <!DOCTYPE html>
-<html lang="pt" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Inlinks</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
-        body { padding: 1rem; font-family: Arial, sans-serif; }
-        table { width: 100%; border-collapse: collapse; max-width: 600px; }
-        td, th { padding: .5rem; border-bottom: 1px solid #ccc; }
+        body {
+            background: #2b2535;
+            color: #f0e6ff;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 38px;
+            margin-bottom: 20px;
+        }
+
+        .box {
+            background: #3a3344;
+            padding: 25px;
+            border-radius: 15px;
+            width: 60%;
+            margin: auto;
+        }
+
+        .count {
+            font-size: 40px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #cba6f7;
+        }
+
+        input[type="text"] {
+            width: 70%;
+            padding: 15px;
+            border-radius: 30px;
+            border: none;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border-radius: 30px;
+            border: none;
+            background: #cba6f7;
+            color: #2b2535;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        button:hover { background: #e0c4ff; }
     </style>
 </head>
 <body>
 
-<h2>Inlinks para: <span th:text="${url}"></span></h2>
+<h1>Inlinks</h1>
 
-<p>Total: <b th:text="${inlinks}"></b></p>
+<form action="/inlinks" method="get">
+    <input type="text" name="url" placeholder="Enter URL..." required>
+    <button type="submit">Check</button>
+</form>
 
-<a href="/">Voltar</a>
+<div class="box" th:if="${url}">
+    <h2 th:text="${url}"></h2>
+    <div class="count" th:text="${inlinks}"></div>
+</div>
+
+<div th:if="${error}" style="color: #ff8080; margin-top: 20px;">
+    <p th:text="${error}"></p>
+</div>
 
 </body>
 </html>

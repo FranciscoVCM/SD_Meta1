@@ -40,6 +40,7 @@ public class GatewayLauncher {
 
         // 5) Instancia e publica
         GatewayServer impl = new GatewayServer(List.of(b1, b2));
+        impl.startInternalWorkers(2);
         RmiUtils.bind("Gateway", impl, 1099);
 
         System.out.println("Gateway up @ " + myIp +

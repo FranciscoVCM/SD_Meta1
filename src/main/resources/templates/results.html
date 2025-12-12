@@ -142,10 +142,20 @@
     </div>
 
     <div th:each="item : ${result.items}" class="result-item">
+
         <a th:href="${item.url}" th:text="${item.title}" class="result-title"></a>
         <span th:text="${item.url}" class="result-url"></span>
+
         <p class="snippet" th:text="${item.snippet}"></p>
+
+        <p style="color:#bda0ff; font-size:14px; margin-top:6px;">
+            Inlinks: <span th:text="${item.inlinks}"></span>
+            •
+            Outlinks: <span th:text="${item.outlinks}"></span>
+        </p>
+
     </div>
+
 
     <!-- Pagination -->
     <div class="pagination" th:if="${result.total > 10}">

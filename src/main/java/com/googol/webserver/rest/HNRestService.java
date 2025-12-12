@@ -3,44 +3,50 @@ package com.googol.webserver.rest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class HNRestService {
 
     private final RestTemplate http = new RestTemplate();
 
-    private static final String TOP_STORIES =
-            "https://hacker-news.firebaseio.com/v0/topstories.json";
+    private static final String SEARCH_API =
+            "https://hn.algolia.com/api/v1/search?query=%s&page=%d&hitsPerPage=20";
 
-    private static final String ITEM =
-            "https://hacker-news.firebaseio.com/v0/item/%d.json";
+    public HNSearchResult search(String term, int page) {
+        try {
+            String url = SEARCH_API.formatted(term, page);
+            Map response = http.getForObject(url, Map.class);
 
-    public List<HNItem> searchTopStories(String term) {
+            if (response == null) return new HNSearchResult();
 
-        // 1. obter IDs dos top stories
-        Integer[] ids = http.getForObject(TOP_STORIES, Integer[].class);
-        if (ids == null) return List.of();
+            List<Map<String, Object>> hits = (List<Map<String, Object>>) response.get("hits");
+            int totalPages = (int) response.getOrDefault("nbPages", 1);
 
-        List<HNItem> results = new ArrayList<>();
+            HNSearchResult out = new HNSearchResult();
+            out.term = term;
+            out.page = page;
+            out.totalPages = totalPages;
 
-        // limitar a 40 items para velocidade
-        int limit = Math.min(40, ids.length);
+            for (Map<String, Object> h : hits) {
 
-        for (int i = 0; i < limit; i++) {
+                HNItem item = new HNItem(
+                        (String) h.getOrDefault("title", "(sem título)"),
+                        (String) h.get("url"),
+                        (String) h.get("author"),
+                        ((Number) h.getOrDefault("points", 0)).intValue(),
+                        ((Number) h.getOrDefault("num_comments", 0)).intValue(),
+                        (String) h.get("created_at")
+                );
 
-            String url = ITEM.formatted(ids[i]);
-            HNItem item = http.getForObject(url, HNItem.class);
-
-            if (item == null) continue;
-
-            // filtro simples
-            if (item.title() != null && item.title().toLowerCase().contains(term.toLowerCase())) {
-                results.add(item);
+                out.items.add(item);
             }
-        }
 
-        return results;
+            return out;
+
+        } catch (Exception e) {
+            return new HNSearchResult();
+        }
     }
 }

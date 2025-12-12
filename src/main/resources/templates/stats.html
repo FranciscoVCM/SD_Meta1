@@ -1,80 +1,99 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Estatísticas em Tempo Real</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Stats</title>
 
     <style>
         body {
-            padding: 1rem;
-            font-family: Arial;
+            background: #2b2535;
+            color: #f0e6ff;
+            font-family: Arial, sans-serif;
+            padding: 40px;
         }
+
+        h1 {
+            text-align: center;
+            font-size: 42px;
+            margin-bottom: 40px;
+        }
+
+        .panel {
+            background: #3a3344;
+            padding: 25px;
+            border-radius: 15px;
+            width: 80%;
+            margin: 25px auto;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
+            margin-top: 15px;
         }
+
         td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
+            padding: 12px;
+            border-bottom: 1px solid #564c63;
+        }
+
+        th {
+            color: #cba6f7;
+            text-align: left;
         }
     </style>
 </head>
-
 <body>
 
-<h2>Estatísticas do Sistema (tempo real)</h2>
+<h1>Estatísticas do Sistema (Tempo Real)</h1>
 
-<h3>Top 10 Pesquisas</h3>
-<table>
-    <tbody id="topQueries"></tbody>
-</table>
+<div class="panel">
+    <h2>Top 10 Pesquisas</h2>
+    <table>
+        <tbody id="topQueries"></tbody>
+    </table>
+</div>
 
-<h3>Barrels Ativos</h3>
-<table>
-    <tbody id="barrels"></tbody>
-</table>
+<div class="panel">
+    <h2>Barrels</h2>
+    <table>
+        <tbody id="barrels"></tbody>
+    </table>
+</div>
 
-<h3>Sistema</h3>
-<div id="system"></div>
+<div class="panel">
+    <h2>Sistema</h2>
+    <div id="system"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <script>
-    let stomp = Stomp.over(new SockJS("/ws"));
 
+    let stomp = Stomp.over(new SockJS("/ws"));
     stomp.connect({}, () => {
         stomp.subscribe("/topic/stats", msg => {
             let data = JSON.parse(msg.body);
 
-            // ---------- TOP QUERIES ----------
             let tq = "";
             data.topQueries.forEach(q => {
                 tq += `<tr><td>${q.term}</td><td>${q.count}</td></tr>`;
             });
             document.querySelector("#topQueries").innerHTML = tq;
 
-            // ---------- BARRELS ----------
-            let b = "";
-            data.barrels.forEach(x => {
-                b += `<tr>
-                        <td>${x.name}</td>
-                        <td>${x.docs}</td>
-                        <td>${x.avgLatency.toFixed(2)} s</td>
-                      </tr>`;
+            let barrels = "";
+            data.barrels.forEach(b => {
+                barrels += `<tr><td>${b.name}</td><td>${b.docs}</td><td>${b.avgLatency.toFixed(2)}s</td></tr>`;
             });
-            document.querySelector("#barrels").innerHTML = b;
+            document.querySelector("#barrels").innerHTML = barrels;
 
-            // ---------- SYSTEM ----------
             document.querySelector("#system").innerHTML =
-                "Documentos: " + data.system.docs +
-                "<br>Termos: " + data.system.terms +
-                "<br>Postings: " + data.system.postings;
+                `Documentos: ${data.system.docs}<br>Termos: ${data.system.terms}<br>Postings: ${data.system.postings}`;
         });
     });
 </script>
 
 </body>
 </html>
+

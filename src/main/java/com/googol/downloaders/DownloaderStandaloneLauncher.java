@@ -1,75 +1,99 @@
 package com.googol.downloaders;
 
-import com.googol.barrels.Barrel;
 import com.googol.gateway.Gateway;
 import com.googol.util.RmiUtils;
+import com.googol.model.CrawlResult;
 
+import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DownloaderStandaloneLauncher {
+
+    /**
+     * USO:
+     *
+     * java DownloaderStandaloneLauncher <numWorkers> seed1 seed2 seed3 ...
+     *
+     * Exemplo:
+     *   java DownloaderStandaloneLauncher 3 https://example.com https://iana.org
+     *
+     */
     public static void main(String[] args) throws Exception {
-        // 1) hostname do stub deste processo (usa IP da VM quando correres na VM)
-        String myIp = System.getenv().getOrDefault("RMI_HOSTNAME",
-                (args.length > 0 ? args[0] : "127.0.0.1"));
-        System.setProperty("java.rmi.server.hostname", myIp);
 
-        int i = 0;
-
-        // 2) barrels até encontrar "--"
-        List<Barrel> barrels = new ArrayList<>();
-        while (i + 2 < args.length && !"--".equals(args[i])) {
-            String host = args[i++];                   // ex.: 192.168.1.81
-            int    port = Integer.parseInt(args[i++]); // ex.: 1099
-            String name = args[i++];                   // ex.: Barrel1
-            Barrel b = RmiUtils.lookup(host, port, name, Barrel.class);
-            barrels.add(b);
+        if (args.length < 2) {
+            System.err.println("Uso: <numWorkers> <seed1> [seed2] ...");
+            return;
         }
 
-        if (barrels.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Uso: <B_HOST> <B_PORT> <B_NAME> [<B_HOST> <B_PORT> <B_NAME> ...] -- <seed1> [seed2 ...]");
-        }
-
-        // 3) separador obrigatório
-        if (i < args.length && "--".equals(args[i])) i++;
-
-        // 4) seeds
+        int numWorkers = Integer.parseInt(args[0]);
         List<String> seeds = new ArrayList<>();
-        while (i < args.length) seeds.add(args[i++]);
+        for (int i = 1; i < args.length; i++) seeds.add(args[i]);
 
-        // 5) manager + controlo
-        DownloaderManager dm = new DownloaderManager(barrels);
-        dm.start();
+        String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "127.0.0.1");
+        int gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT", "1099"));
 
-        DownloaderControl ctrl = new DownloaderControlImpl(dm);
-        RmiUtils.bind("DownloaderA", ctrl, 1099);
-        System.out.println("DownloaderStandalone up as DownloaderA (IP=" + myIp + ")");
+        System.out.println("Ligando ao Gateway em " + gwHost + ":" + gwPort + " …");
 
-        // 6) registar-se no Gateway
-        String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "192.168.1.81"); // HOST
-        int    gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT","1099"));
+        Gateway gw = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
 
-        try {
-            for (int t = 0; t < 10; t++) {
-                try {
-                    Gateway gw = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
-                    gw.registerDownloader(ctrl);
-                    System.out.println("[Standalone] registado no Gateway @" + gwHost + ":" + gwPort);
-                    break;
-                } catch (Exception e) {
-                    Thread.sleep(1000);
-                }
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
+        /* ================================================
+              1 — Criar N workers remotos
+           ================================================ */
+        for (int i = 0; i < numWorkers; i++) {
+
+            WorkerImpl w = new WorkerImpl();
+            String name = "Worker-" + System.nanoTime();
+
+            RmiUtils.bind(name, w);
+            gw.registerDownloader(w);
+
+            System.out.println("[Launcher] Worker registado: " + name);
+
+            // iniciar thread de execução
+            startWorkerThread(gw, w);
         }
 
-        // 7) submeter seeds locais
+        /* ================================================
+              2 — Injetar seeds no Gateway
+           ================================================ */
         for (String s : seeds) {
-            ctrl.enqueue(s, 0);
-            System.out.println("[Standalone] submitted seed: " + s);
+            System.out.println("[Launcher] Seed enviada ao Gateway: " + s);
+            gw.indexUrl(s);
         }
     }
-}
 
+    /* =====================================================
+            Thread que executa um Worker externo
+       ===================================================== */
+
+    private static void startWorkerThread(Gateway gw, WorkerImpl w) {
+
+        new Thread(() -> {
+            System.out.println("[WorkerThread] Iniciado…");
+
+            while (true) {
+                try {
+                    String url = gw.getTask();
+
+                    if (url == null) {
+                        Thread.sleep(150);
+                        continue;
+                    }
+
+                    System.out.println("[WorkerThread] Crawling: " + url);
+
+                    CrawlResult r = WebCrawler.crawl(url);
+                    gw.submitResult(r);
+
+                } catch (RemoteException re) {
+                    System.err.println("[WorkerThread] RMI falhou: " + re);
+                    try { Thread.sleep(1000); } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    System.err.println("[WorkerThread] Erro: " + e);
+                }
+            }
+
+        }).start();
+    }
+}

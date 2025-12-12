@@ -8,78 +8,103 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-/** Downloader simples usando jsoup. */
 public class WebCrawler {
 
-    // identifica-te como crawler académico
     private static final String UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                    + "(KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+                    + "(KHTML, like Gecko) Chrome/122 Safari/537.36";
 
     public static CrawlResult crawl(String url) {
+
         CrawlResult r = new CrawlResult();
         r.url = url;
 
         try {
-            // 1) Fetch com limites sensatos
             Connection.Response resp = Jsoup
                     .connect(url)
                     .userAgent(UA)
-                    .timeout(8000)               // 8s
-                    .maxBodySize(2_000_000)      // ~2MB
-                    .ignoreContentType(true)     // vamos verificar nós o tipo
+                    .timeout(20000) // maior timeout
                     .followRedirects(true)
+                    .ignoreHttpErrors(true)
+                    .ignoreContentType(true)
+                    .maxBodySize(10_000_000)
                     .execute();
 
-            // 2) Ignorar conteúdos não-HTML
-            String ct = resp.contentType() == null ? "" : resp.contentType().toLowerCase();
-            if (!ct.contains("text/html")) {
-                r.title    = url;
-                r.text     = "";
-                r.snippet  = "";
-                r.terms    = List.of();
-                r.outlinks = List.of();
-                return r;
-            }
+            String ct = Optional.ofNullable(resp.contentType()).orElse("").toLowerCase();
+            if (!ct.contains("html") && !ct.contains("xml"))
+                return emptyResult(r, url);
 
-            // 3) Parse HTML
             Document doc = resp.parse();
 
-            String title = doc.title();
-            String text  = doc.text(); // jsoup já remove tags/scripts/estilos
+            /* ============================
+               TÍTULO
+            ============================ */
+            r.title = Optional.ofNullable(doc.title()).orElse(url);
+            if (r.title.isBlank()) r.title = url;
 
-            // termos/snippet com as tuas utilidades
-            List<String> terms   = TextUtils.tokenize(text);
-            String snippet       = TextUtils.makeSnippet(text, terms);
+            /* ============================
+               TEXTO RICO (melhor indexação)
+            ============================ */
+            StringBuilder rich = new StringBuilder();
 
-            // 4) Extrair ligações absolutas (até 50)
-            List<String> out = new ArrayList<>(50);
+            extract(rich, doc.select("meta[name=description]"), "content");
+            extract(rich, doc.select("h1,h2,h3,h4"));
+            extract(rich, doc.select("p,li"));
+            extract(rich, doc.select("article"));
+            extract(rich, doc.select("div"));
+
+            String text = rich.toString().replaceAll("\\s+"," ").trim();
+            r.text = text;
+
+            /* ============================
+               TOKENIZAÇÃO + SNIPPET
+            ============================ */
+            r.terms = TextUtils.tokenize(text);
+            r.snippet = TextUtils.makeSnippet(text, r.terms);
+
+            /* ============================
+               OUTLINKS
+            ============================ */
+            List<String> out = new ArrayList<>(100);
             Elements links = doc.select("a[href]");
+
             for (Element a : links) {
                 String abs = a.attr("abs:href");
-                if (abs == null || abs.isBlank()) continue;
-                if (!abs.startsWith("http://") && !abs.startsWith("https://")) continue;
-                out.add(abs);
-                if (out.size() >= 50) break;
+                if (abs.startsWith("http") && abs.length() < 400)
+                    out.add(abs);
+                if (out.size() >= 100) break;
             }
-
-            // 5) Preencher resultado
-            r.title    = (title != null && !title.isBlank()) ? title : url;
-            r.text     = text;
-            r.snippet  = snippet;
-            r.terms    = terms;
             r.outlinks = out;
 
+            return r;
+
         } catch (Exception e) {
-            r.title    = url;
-            r.text     = "";
-            r.snippet  = "download failed: " + e.getClass().getSimpleName();
-            r.terms    = List.of();
-            r.outlinks = List.of();
+            return emptyResult(r, url);
         }
+    }
+
+    private static void extract(StringBuilder sb, Elements els) {
+        for (Element e : els) {
+            String t = e.text();
+            if (t.length() > 2) sb.append(' ').append(t);
+        }
+    }
+
+    private static void extract(StringBuilder sb, Elements els, String attr) {
+        for (Element e : els) {
+            String t = e.attr(attr);
+            if (t.length() > 2) sb.append(' ').append(t);
+        }
+    }
+
+    private static CrawlResult emptyResult(CrawlResult r, String url) {
+        r.title = url;
+        r.text = "";
+        r.terms = List.of();
+        r.outlinks = List.of();
+        r.snippet = "";
         return r;
     }
 }

@@ -1,13 +1,10 @@
 package com.googol.webserver.controllers;
 
-import com.googol.webserver.rest.HNItem;
 import com.googol.webserver.rest.HNRestService;
+import com.googol.webserver.rest.HNSearchResult;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.*;
 
 @Controller
 public class HNController {
@@ -19,13 +16,17 @@ public class HNController {
     }
 
     @GetMapping("/hn")
-    public String hnSearch(@RequestParam String term, Model model) {
+    public String search(
+            @RequestParam(defaultValue = "") String term,
+            @RequestParam(defaultValue = "0") int page,
+            Model model
+    ) {
+        if (term.isBlank()) return "hackernews";
 
-        List<HNItem> results = hn.searchTopStories(term);
+        HNSearchResult result = hn.search(term, page);
 
         model.addAttribute("term", term);
-        model.addAttribute("items", results);
-
-        return "hackernews";   // HTML a criar
+        model.addAttribute("result", result);
+        return "hackernews";
     }
 }

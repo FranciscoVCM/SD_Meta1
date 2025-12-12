@@ -1,35 +1,65 @@
 package com.googol.util;
 
-import java.net.URI;
+import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class TextUtils {
+
     private TextUtils() {}
 
+    /** STOP words melhoradas */
     private static final Set<String> STOP = new HashSet<>(Arrays.asList(
             "a","o","os","as","de","da","do","das","dos","e","em","para","por",
             "um","uma","uns","umas","the","and","of","to","in","on","for","is",
-            "are","be","with","at","by","an","or","as"
+            "are","be","with","at","by","an","or","as","if","that","this","it"
     ));
 
-    public static String normalize(String s) {
-        if (s == null) return "";
-        return s.toLowerCase().replaceAll("[^\\p{L}\\p{Nd}\\s]+"," ").trim();
+    public static boolean isStopWord(String t) {
+        return t == null || t.isBlank() || STOP.contains(t.toLowerCase());
     }
 
+    /** Remove acentos, emojis, normaliza símbolos e espaços */
+    public static String normalize(String s) {
+        if (s == null) return "";
+
+        // remover acentos
+        s = Normalizer.normalize(s, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+
+        // separar CamelCase (MegaKnight → Mega Knight)
+        s = s.replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+
+        // remover emojis e símbolos estranhos
+        s = s.replaceAll("[^\\p{L}\\p{Nd}\\s]+", " ");
+
+        // tudo lowercase
+        s = s.toLowerCase();
+
+        // normalizar espaços
+        return s.replaceAll("\\s+", " ").trim();
+    }
+
+    /** Tokenização inteligente */
     public static List<String> tokenize(String text) {
         if (text == null) return Collections.emptyList();
+
         String[] raw = normalize(text).split("\\s+");
         List<String> terms = new ArrayList<>(raw.length);
+
         for (String t : raw) {
             if (t.isBlank()) continue;
             if (STOP.contains(t)) continue;
-            terms.add(t);
+
+            // aplicar CamelCase split se necessário
+            List<String> split = splitCamelCase(t);
+            terms.addAll(split);
         }
+
         return terms;
     }
+
 
     private static final Pattern TITLE_RE = Pattern.compile("(?is)<title>(.*?)</title>");
     public static String extractTitle(String html) {
@@ -37,61 +67,46 @@ public final class TextUtils {
         Matcher m = TITLE_RE.matcher(html);
         return m.find() ? m.group(1).replaceAll("\\s+", " ").trim() : null;
     }
+    private static List<String> splitCamelCase(String t) {
+        // MegaKnight → [Mega, Knight]
+        // DarkX → [Dark, X]
+        if (!t.matches(".*[a-z][A-Z].*")) return List.of(t);
 
-    public static String stripHtml(String html) {
-        if (html == null) return "";
-        return html.replaceAll("(?is)<script.*?>.*?</script>", " ")
-                .replaceAll("(?is)<style.*?>.*?</style>", " ")
-                .replaceAll("(?is)<[^>]+>", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
-    // links relativos -> absolutos, e filtros simples
-    private static final Pattern HREF_RE = Pattern.compile("(?is)href\\s*=\\s*\"([^\"]+)\"");
-    public static List<String> extractLinks(String baseUrl, String html, int max) {
+        String spaced = t.replaceAll("([a-z])([A-Z])", "$1 $2");
         List<String> out = new ArrayList<>();
-        if (html == null) return out;
-
-        URI base;
-        try { base = URI.create(baseUrl); } catch (Exception e) { return out; }
-
-        Matcher m = HREF_RE.matcher(html);
-        while (m.find() && out.size() < max) {
-            String href = m.group(1).trim();
-            if (href.startsWith("javascript:") || href.startsWith("#")) continue;
-            try {
-                URI u = base.resolve(href);
-                String s = u.normalize().toString();
-                // filtro básico: http/https, sem fragmentos mailto etc.
-                if (s.startsWith("http://") || s.startsWith("https://")) {
-                    out.add(s);
-                }
-            } catch (Exception ignored) {}
+        for (String s : spaced.split("\\s+")) {
+            s = s.trim().toLowerCase();
+            if (!s.isBlank()) out.add(s);
         }
         return out;
     }
 
-    public static boolean isStopWord(String t) {
-        return t == null || t.isBlank() || STOP.contains(t);
-    }
 
+    /** Extrator de snippet inteligente */
     public static String makeSnippet(String text, List<String> terms) {
         if (text == null || text.isBlank()) return "";
+
         String low = text.toLowerCase();
         int pos = Integer.MAX_VALUE;
+
         for (String t : terms) {
-            String k = t.toLowerCase();
-            int i = low.indexOf(k);
+            int i = low.indexOf(t.toLowerCase());
             if (i >= 0) pos = Math.min(pos, i);
         }
+
         if (pos == Integer.MAX_VALUE) pos = 0;
-        int width = 160;
-        int start = Math.max(0, pos - width/3);
-        int end   = Math.min(text.length(), start + width);
-        String sn = text.substring(start, end).replaceAll("\\s+"," ").trim();
+
+        int width = 200;
+        int start = Math.max(0, pos - width / 3);
+        int end = Math.min(text.length(), start + width);
+
+        String sn = text.substring(start, end).replaceAll("\\s+", " ").trim();
+
         if (start > 0) sn = "… " + sn;
-        if (end < text.length()) sn = sn + " …";
+        if (end < text.length()) sn += " …";
+
         return sn;
+
+
     }
 }

@@ -15,7 +15,7 @@ public class AIController {
     }
 
     @GetMapping("/ai")
-    public String aiForm() {
+    public String form() {
         return "ai";
     }
 

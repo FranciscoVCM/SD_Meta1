@@ -1,95 +1,86 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
     <title>Live Stream</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <style>
-        textarea, input[type="text"], input[type="number"], button, select {
-            width: 100%;
-            max-width: 500px;
-            margin-top: .5rem;
-            box-sizing: border-box;
-        }
-
         body {
-            padding: 1rem;
-            font-family: Arial, sans-serif;
+            background: #2b2535;
+            color: #f0e6ff;
+            font-family: Arial;
+            padding: 40px;
         }
 
-        table {
-            width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
+        h1 { text-align: center; font-size: 42px; }
+
+        .panel {
+            background: #3a3344;
+            padding: 20px;
+            width: 70%;
+            margin: 20px auto;
+            border-radius: 15px;
         }
 
-        td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
+        li {
+            margin: 5px 0;
+            color: #d3c4ff;
         }
     </style>
 </head>
-
 <body>
 
-<h2>Queue size (real time)</h2>
-<h3 id="queueValue">loading...</h3>
+<h1>Live System Stream</h1>
 
-<hr>
+<div class="panel">
+    <h2>Queue Size</h2>
+    <h3 id="queueValue">loading...</h3>
+</div>
 
-<h2>Top 10 Pesquisas</h2>
-<ul id="topQueries"></ul>
+<div class="panel">
+    <h2>Top Queries</h2>
+    <ul id="topQueries"></ul>
+</div>
 
-<h2>Latência média por Barrel</h2>
-<ul id="latencies"></ul>
+<div class="panel">
+    <h2>Latência por Barrel</h2>
+    <ul id="latencies"></ul>
+</div>
 
-<h2>Última Pesquisa</h2>
-<p id="lastSearch">loading...</p>
+<div class="panel">
+    <h2>Última Pesquisa</h2>
+    <p id="lastSearch">loading...</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <script>
-    let socket = new SockJS("/ws");
-    let stomp = Stomp.over(socket);
-
+    let stomp = Stomp.over(new SockJS("/ws"));
     stomp.connect({}, () => {
-        // -------------------------
-        // QUEUE SIZE
-        // -------------------------
+
         stomp.subscribe("/topic/queue", msg => {
             document.getElementById("queueValue").innerText = msg.body;
         });
 
-        // -------------------------
-        // STATS COMPLETAS
-        // -------------------------
         stomp.subscribe("/topic/stats", msg => {
             let data = JSON.parse(msg.body);
 
-            // ---- TOP QUERIES ----
-            let tqHtml = "";
-            data.topQueries.forEach(q => {
-                tqHtml += `<li>${q.term} — ${q.count} vezes</li>`;
-            });
-            document.getElementById("topQueries").innerHTML = tqHtml;
+            let tq = "";
+            data.topQueries.forEach(q => { tq += `<li>${q.term} — ${q.count}</li>`; });
+            document.querySelector("#topQueries").innerHTML = tq;
 
-            // ---- LATÊNCIAS ----
-            let latHtml = "";
-            data.barrels.forEach(b => {
-                latHtml += `<li>${b.name}: ${b.avgLatency.toFixed(2)}s</li>`;
-            });
-            document.getElementById("latencies").innerHTML = latHtml;
+            let lat = "";
+            data.barrels.forEach(b => { lat += `<li>${b.name}: ${b.avgLatency.toFixed(2)}s</li>`; });
+            document.querySelector("#latencies").innerHTML = lat;
 
-            // ---- ÚLTIMA PESQUISA ----
             if (data.lastSearchMs !== undefined)
-                document.getElementById("lastSearch").innerText =
-                    data.lastSearchMs + " ms";
+                document.getElementById("lastSearch").innerText = data.lastSearchMs + " ms";
         });
     });
 </script>
 
 </body>
 </html>
+
 
