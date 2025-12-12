@@ -15,38 +15,29 @@ public class InvertedIndex implements Serializable {
     private final Map<String, Set<String>> inlinksMap = new HashMap<>();
     private final Map<String, PageDocument> docs = new HashMap<>();
 
-    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int PAGE_SIZE = 10;
 
-    // =======================
-    // ADD DOCUMENT
-    // =======================
     public synchronized void add(PageDocument doc) {
 
-        PageDocument old = docs.put(doc.url, doc);
+        doc.normalizedUrl = TextUtils.normalizeUrl(doc.url);
+        doc.timestamp = System.currentTimeMillis();
 
-        // remover backlinks antigos
-        if (old != null && old.outlinks != null) {
-            for (String to : old.outlinks) {
-                Set<String> s = inlinksMap.get(to);
-                if (s != null) {
-                    s.remove(old.url);
-                    if (s.isEmpty()) inlinksMap.remove(to);
-                }
-            }
-        }
+        PageDocument old = docs.put(doc.normalizedUrl, doc);
 
-        // adicionar backlinks novos
+        if (old != null && old.outlinks != null)
+            for (String to : old.outlinks)
+                inlinksMap.getOrDefault(to, Set.of()).remove(old.normalizedUrl);
+
         if (doc.outlinks != null) {
             doc.outlinksCount = doc.outlinks.size();
-            for (String to : doc.outlinks) {
-                inlinksMap.computeIfAbsent(to, k -> new HashSet<>()).add(doc.url);
+            for (String raw : doc.outlinks) {
+                String to = TextUtils.normalizeUrl(raw);
+                inlinksMap.computeIfAbsent(to, k -> new HashSet<>()).add(doc.normalizedUrl);
             }
         }
 
-        // atualizar inlinksCount do doc
-        doc.inlinks = inlinks(doc.url);
+        doc.inlinks = inlinks(doc.normalizedUrl);
 
-        // indexação de termos
         List<String> terms = TextUtils.tokenize(doc.text);
         if (terms.isEmpty()) return;
 
@@ -55,30 +46,25 @@ public class InvertedIndex implements Serializable {
 
         for (var e : tf.entrySet()) {
             postings.computeIfAbsent(e.getKey(), k -> new HashMap<>())
-                    .put(doc.url, e.getValue());
+                    .put(doc.normalizedUrl, e.getValue());
         }
     }
 
-    // =======================
-    // RANKING SEARCH
-    // =======================
     public synchronized List<String> searchUrls(List<String> rawTerms) {
 
         List<String> terms = new ArrayList<>();
-
         for (String t : rawTerms) {
             t = TextUtils.normalize(t);
-            if (TextUtils.isStopWord(t)) continue;
-            terms.add(t);
+            if (!t.isBlank() && !TextUtils.isStopWord(t))
+                terms.add(t);
         }
 
         if (terms.isEmpty()) return List.of();
 
-        // interseção
         Set<String> candidate = null;
 
         for (String t : terms) {
-            Map<String, Integer> m = postings.get(t);
+            Map<String,Integer> m = postings.get(t);
             if (m == null) return List.of();
 
             if (candidate == null) candidate = new HashSet<>(m.keySet());
@@ -90,84 +76,52 @@ public class InvertedIndex implements Serializable {
 
         if (candidate == null) return List.of();
 
-        // scoring
         Map<String, Integer> tfScore = new HashMap<>();
         for (String url : candidate) {
-            int sum = 0;
-            for (String t : terms) sum += postings.get(t).getOrDefault(url, 0);
-            tfScore.put(url, sum);
+            int score = 0;
+            for (String t : terms)
+                score += postings.get(t).getOrDefault(url, 0);
+            tfScore.put(url, score);
         }
 
-        // ordenar
         List<String> list = new ArrayList<>(candidate);
 
-        list.sort((a, b) -> {
-
+        list.sort((a,b)->{
             PageDocument A = docs.get(a);
             PageDocument B = docs.get(b);
 
-            int ia = (A != null ? A.inlinks : 0);
-            int ib = (B != null ? B.inlinks : 0);
+            int la = A != null ? A.inlinks : 0;
+            int lb = B != null ? B.inlinks : 0;
 
-            // 1) Inlinks DESC
-            int cmp = Integer.compare(ib, ia);
+            int cmp = Integer.compare(lb, la);
             if (cmp != 0) return cmp;
 
-            // 2) TF DESC
-            cmp = Integer.compare(tfScore.getOrDefault(b, 0), tfScore.getOrDefault(a, 0));
+            cmp = Integer.compare(tfScore.get(b), tfScore.get(a));
             if (cmp != 0) return cmp;
 
-            // 3) Boost no título
-            boolean aTitle = (A != null && containsInTitle(A, terms));
-            boolean bTitle = (B != null && containsInTitle(B, terms));
+            boolean aTitle = A != null && A.title != null &&
+                    terms.stream().anyMatch(t -> A.title.toLowerCase().contains(t));
+            boolean bTitle = B != null && B.title != null &&
+                    terms.stream().anyMatch(t -> B.title.toLowerCase().contains(t));
 
             if (aTitle && !bTitle) return -1;
             if (bTitle && !aTitle) return 1;
 
-            // 4) determinismo
-            return a.compareTo(b);
+            return Long.compare(B.timestamp, A.timestamp);
         });
 
         return list;
     }
 
-    private boolean containsInTitle(PageDocument d, List<String> terms) {
-        if (d.title == null) return false;
-        String t = d.title.toLowerCase();
-        for (String s : terms)
-            if (t.contains(s)) return true;
-        return false;
-    }
-    public synchronized StatsSnapshot stats() {
-        StatsSnapshot s = new StatsSnapshot();
-        s.numDocs = docs.size();
-        s.numTerms = postings.size();
-
-        int pairs = 0;
-        for (Map<String,Integer> m : postings.values())
-            pairs += m.size();
-        s.numPostings = pairs;
-
-        // não tem lastSearchMs no barrel, deixamos = 0
-        s.lastSearchMs = 0;
-
-        return s;
-    }
-
-
-    // =======================
-    // FULL SEARCH
-    // =======================
     public synchronized SearchResult search(SearchQuery q) {
-
         List<String> terms = TextUtils.tokenize(q.terms);
         List<String> urls = searchUrls(terms);
 
-        int page = Math.max(1, q.page);
         int total = urls.size();
+        int page = Math.max(1, q.page);
 
-        int from = Math.min((page - 1) * DEFAULT_PAGE_SIZE, total);
-        int to   = Math.min(from + DEFAULT_PAGE_SIZE, total);
+        int from = Math.min((page - 1) * PAGE_SIZE, total);
+        int to   = Math.min(from + PAGE_SIZE, total);
 
         SearchResult out = new SearchResult();
         out.page = page;
@@ -178,14 +132,11 @@ public class InvertedIndex implements Serializable {
             PageDocument d = docs.get(url);
 
             SearchResult.Item it = new SearchResult.Item();
-            it.url = url;
-            it.title = (d != null ? d.title : url);
-            it.snippet = (d != null ? d.snippet : "");
-
-            if (d != null) {
-                it.inlinks = d.inlinks;
-                it.outlinks = d.outlinksCount;
-            }
+            it.url = d.url;
+            it.title = d.title;
+            it.snippet = d.snippet;
+            it.inlinks = d.inlinks;
+            it.outlinks = d.outlinksCount;
 
             out.items.add(it);
         }
@@ -193,14 +144,27 @@ public class InvertedIndex implements Serializable {
         return out;
     }
 
-    // =======================
     public synchronized int inlinks(String url) {
-        if (url == null) return 0;
+        url = TextUtils.normalizeUrl(url);
         return inlinksMap.getOrDefault(url, Set.of()).size();
     }
 
     public synchronized List<String> backlinks(String url) {
-        Set<String> s = inlinksMap.get(url);
-        return (s == null) ? List.of() : new ArrayList<>(s);
+        url = TextUtils.normalizeUrl(url);
+        return new ArrayList<>(inlinksMap.getOrDefault(url, Set.of()));
+    }
+
+    public synchronized StatsSnapshot stats() {
+        StatsSnapshot s = new StatsSnapshot();
+        s.numDocs = docs.size();
+        s.numTerms = postings.size();
+
+        int pairs = 0;
+        for (var m : postings.values())
+            pairs += m.size();
+
+        s.numPostings = pairs;
+        return s;
     }
 }
+

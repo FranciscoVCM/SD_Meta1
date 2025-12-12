@@ -5,8 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SearchResult implements Serializable {
-
     private static final long serialVersionUID = 1L;
+
+    public int page;
+    public int total;
+
+    public long lastSearchMs;  // <----- ESTE CAMPO É OBRIGATÓRIO
+
+    public List<Item> items = new ArrayList<>();
 
     public static class Item implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -14,12 +20,7 @@ public class SearchResult implements Serializable {
         public String url;
         public String title;
         public String snippet;
-
         public int inlinks;
         public int outlinks;
     }
-
-    public List<Item> items = new ArrayList<>();
-    public int total = 0;
-    public int page = 1;
 }

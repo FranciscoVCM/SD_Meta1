@@ -16,57 +16,43 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
-    // ================================
-    //  FILA GLOBAL
-    // ================================
     private final BlockingQueue<String> queue =
-            new PriorityBlockingQueue<>(1000, new UrlPriorityComparator());
+            new PriorityBlockingQueue<>(5000, new UrlPriorityComparator());
+
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
 
-    // Workers remotos
     private final List<Worker> workers = new CopyOnWriteArrayList<>();
-
-    // Barrels conectados
     private final List<Barrel> barrels;
 
-    // Limites
-    private static final int MAX_PAGES = 5000;
     private final AtomicInteger pagesIndexed = new AtomicInteger(0);
+    private final Map<String, Integer> queryFreq = new ConcurrentHashMap<>();
+
+    private static final int MAX_PAGES = 50000;
 
     public GatewayServer(List<Barrel> barrels) throws RemoteException {
         super();
         this.barrels = barrels;
     }
 
-    // =============================
-    //          API principal
-    // =============================
     @Override
     public synchronized void indexUrl(String url) throws RemoteException {
         queue.add("USER:" + url);
-        seen.add(url); // manter controle
+        seen.add(url);
     }
 
-    private void submitUrl(String url) {
-        if (url == null || url.isBlank()) return;
-        if (!url.startsWith("http")) return;
+    private void enqueueUrl(String url) {
+        if (url == null || url.isBlank() || !url.startsWith("http")) return;
         if (pagesIndexed.get() >= MAX_PAGES) return;
 
         if (seen.add(url)) {
-            queue.offer(url);
-            System.out.println("[Gateway] URL enqueued: " + url);
+            queue.add(url);
         }
     }
 
-    // =============================
-    //        API PARA WORKERS
-    // =============================
     @Override
     public synchronized void registerDownloader(Worker w) {
-        if (w != null) {
-            workers.add(w);
-            System.out.println("[Gateway] Worker registered");
-        }
+        workers.add(w);
+        System.out.println("[Gateway] Worker registered: " + w);
     }
 
     @Override
@@ -81,57 +67,27 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     }
 
     @Override
-    public synchronized void submitResult(CrawlResult r) throws RemoteException {
+    public synchronized void submitResult(CrawlResult r) {
         if (r == null || r.url == null) return;
 
-        try {
-            // enviar para todos os barrels
-            for (Barrel b : barrels) {
-                try {
-                    b.append(r);
-                } catch (Exception e) {
-                    System.err.println("[Gateway] Barrel unreachable: " + b + " cause=" + e);
-                }
-            }
-
-            pagesIndexed.incrementAndGet();
-
-            // enfileirar novos links
-            for (String out : r.outlinks) {
-                submitUrl(out);
-            }
-
-        } catch (Exception e) {
-            System.err.println("[Gateway] Failed to process crawl result: " + e);
+        for (Barrel b : barrels) {
+            try { b.append(r); }
+            catch (Exception e) { System.err.println("Barrel unreachable: " + b); }
         }
-    }
 
-    // --- Internal worker (opcional)
-    public void startInternalWorkers(int n) {
-        for (int i = 0; i < n; i++) {
-            new Thread(() -> {
-                while (true) {
-                    try {
-                        String url = getTask();
-                        if (url == null) {
-                            Thread.sleep(150);
-                            continue;
-                        }
-                        CrawlResult r = WebCrawler.crawl(url);
-                        submitResult(r);
-                    } catch (Exception ignored) {}
-                }
-            }).start();
-        }
-    }
+        pagesIndexed.incrementAndGet();
 
-    // =============================
-    //      Funcionalidades antigas
-    // =============================
+        for (String out : r.outlinks)
+            enqueueUrl(out);
+    }
 
     @Override
     public synchronized SearchResult search(SearchQuery q) throws RemoteException {
-        return barrels.get(0).search(q);
+
+        queryFreq.merge(q.terms.toLowerCase(), 1, Integer::sum);
+
+        SearchResult r = barrels.get(0).search(q);
+        return r;
     }
 
     @Override
@@ -148,30 +104,28 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     public synchronized StatsSnapshot stats() throws RemoteException {
 
         StatsSnapshot s = new StatsSnapshot();
+
         s.pagesIndexed = pagesIndexed.get();
         s.urlsInQueue = queue.size();
         s.activeDownloaders = workers.size();
 
-        int totalDocs = 0;
-        int totalTerms = 0;
-        int totalPostings = 0;
-
-        for (Barrel b : barrels) {
+        barrels.forEach(b -> {
             try {
                 StatsSnapshot bs = b.barrelStats();
-
-                totalDocs += bs.numDocs;
-                totalTerms += bs.numTerms;
-                totalPostings += bs.numPostings;
+                s.numDocs += bs.numDocs;
+                s.numTerms += bs.numTerms;
+                s.numPostings += bs.numPostings;
 
                 s.barrelNumDocs.put(b.getName(), bs.numDocs);
                 s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
-            } catch (Exception ignored) {}
-        }
 
-        s.numDocs = totalDocs;
-        s.numTerms = totalTerms;
-        s.numPostings = totalPostings;
+            } catch (Exception ignored) {}
+        });
+
+        queryFreq.entrySet().stream()
+                .sorted((a,b)->b.getValue()-a.getValue())
+                .limit(10)
+                .forEach(e -> s.topQueries.add(e.getKey() + " (" + e.getValue() + ")"));
 
         return s;
     }

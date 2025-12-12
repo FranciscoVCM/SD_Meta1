@@ -6,12 +6,13 @@ public class UrlPriorityComparator implements Comparator<String> {
 
     @Override
     public int compare(String a, String b) {
-        boolean aUser = a.startsWith("USER:");
-        boolean bUser = b.startsWith("USER:");
 
-        if (aUser && !bUser) return -1;   // USER primeiro
-        if (bUser && !aUser) return 1;    // USER primeiro
+        int sa = a.length();
+        int sb = b.length();
 
-        return 0; // mesma prioridade
+        if (sa != sb) return Integer.compare(sa, sb);
+
+        return a.compareTo(b);
     }
 }
+
