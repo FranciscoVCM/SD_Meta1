@@ -3,19 +3,27 @@ package com.googol.barrels;
 import com.googol.util.RmiUtils;
 
 public class BarrelLauncher {
-
     public static void main(String[] args) throws Exception {
 
-        String name = args.length >= 1 ? args[0] : "Barrel1";
-        int port = args.length >= 2 ? Integer.parseInt(args[1]) : 2001;
+        // 1) DEFINIR o hostname ANTES de tudo
+        String hostIp = System.getenv().getOrDefault("RMI_HOSTNAME", "127.0.0.1");
+        System.setProperty("java.rmi.server.hostname", hostIp);
 
-        String snapshot = "barrel-" + name + ".ser";
+        // DEBUG
+        System.out.println("RMI_HOSTNAME=" + System.getenv("RMI_HOSTNAME"));
+        System.out.println("java.rmi.server.hostname=" + System.getProperty("java.rmi.server.hostname"));
 
-        BarrelReplica impl = new BarrelReplica(name, snapshot);
+        // 2) Ler args: nome + porta + snapshot
+        String name = (args.length >= 1) ? args[0] : "Barrel1";
+        int    port = (args.length >= 2) ? Integer.parseInt(args[1]) : 1099;
+        String snap = (args.length >= 3) ? args[2] : ("barrel-" + name + ".ser");
 
+        // 3) Criar replica
+        BarrelReplica impl = new BarrelReplica(name, snap);
+
+        // 4) Publicar RMI
         RmiUtils.bind(name, impl, port);
 
-        System.out.println("[BarrelLauncher] " + name + " running on port " + port);
-        System.out.println("[BarrelLauncher] Snapshot file = " + snapshot);
+        System.out.println("Barrel UP → " + name + " @ " + hostIp + ":" + port + " snapshot=" + snap);
     }
 }
