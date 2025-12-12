@@ -140,7 +140,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         StatsSnapshot s = new StatsSnapshot();
         s.pagesIndexed = pagesIndexed.get();
         s.urlsInQueue = queue.size();
-        s.activeDl = workers.size();
+        s.activeDownloaders = workers.size();
 
         int totalDocs = 0;
         int totalTerms = 0;
@@ -148,7 +148,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
         for (Barrel b : barrels) {
             try {
-                StatsSnapshot bs = b.barrelStats();   // ← CORRIGIDO AQUI
+                StatsSnapshot bs = b.barrelStats();
 
                 totalDocs += bs.numDocs;
                 totalTerms += bs.numTerms;
