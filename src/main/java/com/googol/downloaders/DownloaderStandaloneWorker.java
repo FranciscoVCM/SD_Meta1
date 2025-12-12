@@ -7,8 +7,12 @@ import com.googol.util.RmiUtils;
 public class DownloaderStandaloneWorker {
 
     public static void main(String[] args) throws Exception {
-
-        String gwHost = System.getenv().getOrDefault("GATEWAY_HOST", "127.0.0.1");
+        System.setProperty("java.rmi.server.hostname",
+                System.getenv().getOrDefault("RMI_HOSTNAME", "192.168.1.79"));
+        String gwHost = System.getenv("GATEWAY_HOST");
+        if (gwHost == null || gwHost.isBlank()) {
+            gwHost = "192.168.1.79"; // DEFAULT: Gateway
+        }
         int gwPort = Integer.parseInt(System.getenv().getOrDefault("GATEWAY_PORT", "1099"));
 
         Gateway gateway = RmiUtils.lookup(gwHost, gwPort, "Gateway", Gateway.class);
