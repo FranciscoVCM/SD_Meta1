@@ -28,7 +28,8 @@ public class RmiUtils {
 
     public static <T extends Remote> void bind(String name, T obj, int port) throws Exception {
         ensureRegistry(port);
-        Naming.rebind("rmi://localhost:" + port + "/" + name, obj);
+        String host = System.getProperty("java.rmi.server.hostname");
+        Naming.rebind("rmi://" + host + ":" + port + "/" + name, obj);
     }
 
     // ===== lookup (localhost)

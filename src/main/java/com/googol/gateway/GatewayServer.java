@@ -19,7 +19,8 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     // ================================
     //  FILA GLOBAL
     // ================================
-    private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<String> queue =
+            new PriorityBlockingQueue<>(1000, new UrlPriorityComparator());
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
 
     // Workers remotos
@@ -42,7 +43,8 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     // =============================
     @Override
     public synchronized void indexUrl(String url) throws RemoteException {
-        submitUrl(url);
+        queue.add("USER:" + url);
+        seen.add(url); // manter controle
     }
 
     private void submitUrl(String url) {
@@ -69,7 +71,13 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     @Override
     public synchronized String getTask() {
-        return queue.poll();
+        String url = queue.poll();
+        if (url == null) return null;
+
+        if (url.startsWith("USER:"))
+            return url.substring(5);
+
+        return url;
     }
 
     @Override
@@ -81,14 +89,16 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
             for (Barrel b : barrels) {
                 try {
                     b.append(r);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    System.err.println("[Gateway] Barrel unreachable: " + b + " cause=" + e);
+                }
             }
 
             pagesIndexed.incrementAndGet();
 
             // enfileirar novos links
             for (String out : r.outlinks) {
-                submitUrl(out);
+                queue.add(out);
             }
 
         } catch (Exception e) {
