@@ -5,7 +5,6 @@ import com.googol.model.CrawlResult;
 import com.googol.model.PageDocument;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
-import com.googol.model.StatsSnapshot;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -20,20 +19,22 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     private InvertedIndex index = new InvertedIndex();
 
     private final Path snapshotPath;
-    private static final int SAVE_EVERY = 100; // snapshot a cada N appends
+    private static final int SAVE_EVERY = 100;
     private int appendedSinceSave = 0;
 
     public BarrelReplica() throws RemoteException {
-        this("barrel-index.ser");             // delega no outro construtor
+        this("barrel-index.ser");
     }
 
-    /** Construtor que recebe o caminho do snapshot */
     public BarrelReplica(String snapshotFile) throws RemoteException {
         super();
         this.snapshotPath = Path.of(snapshotFile);
         loadIfExists();
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try { synchronized (BarrelReplica.this) { persist(); } } catch (Exception ignored) {}
+            try {
+                synchronized (BarrelReplica.this) { persist(); }
+            } catch (Exception ignored) {}
         }));
     }
 
@@ -71,16 +72,20 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         return index.backlinks(url);
     }
 
-    @Override
-    public synchronized StatsSnapshot stats() throws RemoteException {
-        return index.stats();
-    }
+    /**
+     * ⚠️ REMOVIDO: stats() local deixou de existir na Meta 2.
+     * Stats agora só vêm do Gateway.
+     */
 
-    // === Snapshotting
+    // ============================
+    // Snapshotting
+    // ============================
 
     private void persist() {
         try {
-            Files.createDirectories(snapshotPath.getParent() == null ? Path.of(".") : snapshotPath.getParent());
+            Files.createDirectories(
+                    snapshotPath.getParent() == null ? Path.of(".") : snapshotPath.getParent()
+            );
             try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(snapshotPath))) {
                 out.writeObject(index);
             }
@@ -105,7 +110,6 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         }
     }
 
-    // grava um snapshot no shutdown “limpo”
     {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
@@ -114,5 +118,3 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         }));
     }
 }
-
-

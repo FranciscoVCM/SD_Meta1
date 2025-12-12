@@ -16,7 +16,7 @@ public interface Barrel extends Remote {
 
     int inlinks(String url) throws RemoteException;
 
-    StatsSnapshot stats() throws RemoteException;
+    //StatsSnapshot stats() throws RemoteException;
 
     List<String> backlinks(String url) throws RemoteException;
 }
