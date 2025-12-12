@@ -4,11 +4,11 @@ import com.googol.gateway.Gateway;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
 import com.googol.model.StatsSnapshot;
-
 import org.springframework.stereotype.Service;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+
 @Service
 public class GatewayService {
 
@@ -21,7 +21,18 @@ public class GatewayService {
             return (Gateway) reg.lookup("Gateway");
 
         } catch (Exception e) {
-            return null; // GW offline
+            return null;
+        }
+    }
+
+    public boolean isOnline() {
+        try {
+            Gateway gw = connect();
+            if (gw == null) return false;
+            gw.stats(); // ping remoto
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -39,7 +50,6 @@ public class GatewayService {
     public boolean indexUrl(String url) {
         Gateway gw = connect();
         if (gw == null) return false;
-
         try {
             gw.indexUrl(url);
             return true;
@@ -51,7 +61,6 @@ public class GatewayService {
     public StatsSnapshot stats() {
         Gateway gw = connect();
         if (gw == null) return null;
-
         try {
             return gw.stats();
         } catch (Exception e) {
@@ -62,7 +71,6 @@ public class GatewayService {
     public int inlinks(String url) {
         Gateway gw = connect();
         if (gw == null) return -1;
-
         try {
             return gw.inlinks(url);
         } catch (Exception e) {
@@ -73,7 +81,6 @@ public class GatewayService {
     public java.util.List<String> backlinks(String url) {
         Gateway gw = connect();
         if (gw == null) return java.util.List.of();
-
         try {
             return gw.backlinks(url);
         } catch (Exception e) {
@@ -81,3 +88,4 @@ public class GatewayService {
         }
     }
 }
+

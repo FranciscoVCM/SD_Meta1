@@ -3,6 +3,7 @@ package com.googol.index;
 import com.googol.model.PageDocument;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
+import com.googol.model.StatsSnapshot;
 import com.googol.util.TextUtils;
 
 import java.io.Serializable;
@@ -137,6 +138,22 @@ public class InvertedIndex implements Serializable {
             if (t.contains(s)) return true;
         return false;
     }
+    public synchronized StatsSnapshot stats() {
+        StatsSnapshot s = new StatsSnapshot();
+        s.numDocs = docs.size();
+        s.numTerms = postings.size();
+
+        int pairs = 0;
+        for (Map<String,Integer> m : postings.values())
+            pairs += m.size();
+        s.numPostings = pairs;
+
+        // não tem lastSearchMs no barrel, deixamos = 0
+        s.lastSearchMs = 0;
+
+        return s;
+    }
+
 
     // =======================
     // FULL SEARCH

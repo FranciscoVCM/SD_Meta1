@@ -1,44 +1,147 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+  <meta charset="UTF-8">
   <title>HackerNews Search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
-    textarea, input[type="text"], input[type="number"], button, select {
-      width: 100%;
-      max-width: 500px;
-      margin-top: .5rem;
-      box-sizing: border-box;
-    }
-
     body {
-      padding: 1rem;
-      font-family: Arial, sans-serif;
+      background: #2e2a38;
+      color: white;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
-    table {
+    .top-bar {
       width: 100%;
-      max-width: 600px;
-      border-collapse: collapse;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      background: #241f2d;
     }
 
-    td, th {
-      padding: .5rem;
-      border-bottom: 1px solid #ccc;
+    .logo {
+      font-size: 32px;
+      font-weight: bold;
+      color: #ff9248;
+      margin-right: 20px;
+      text-decoration: none;
+    }
+
+    .search-container {
+      flex: 1;
+      display: flex;
+      background: white;
+      border-radius: 30px;
+      padding: 8px 16px;
+      align-items: center;
+    }
+
+    .search-container input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      padding: 8px;
+    }
+
+    .search-btn {
+      background: #ffd0a3;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    .item {
+      margin: 20px auto;
+      padding: 20px;
+      background: #3a3347;
+      max-width: 900px;
+      border-radius: 10px;
+    }
+
+    .item a {
+      color: #ffa860;
+      font-size: 20px;
+      text-decoration: none;
+    }
+
+    .meta {
+      margin-top: 6px;
+      font-size: 14px;
+      color: #d9d1e6;
+    }
+
+    .pagination {
+      text-align: center;
+      margin: 30px;
+    }
+
+    .pagination a {
+      margin: 0 8px;
+      padding: 8px 14px;
+      background: #423857;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: 0.2s;
+    }
+
+    .pagination a:hover {
+      background: #5c5078;
+    }
+
+    .current {
+      background: #ff9248 !important;
+      color: black !important;
+      font-weight: bold;
     }
   </style>
 </head>
 
 <body>
-<h2>Resultados HackerNews para "<span th:text="${term}"></span>"</h2>
 
-<ul>
-  <li th:each="i : ${items}">
-    <b th:text="${i.title}"></b><br>
-    <a th:href="${i.url}" target="_blank">Abrir link</a>
-    <br><br>
-  </li>
-</ul>
+<!-- Top bar -->
+<div class="top-bar">
+  <a class="logo" href="/">Googol</a>
+
+  <form action="/hn" method="get" class="search-container">
+    <input type="text" name="term" placeholder="Pesquisar HackerNews..."
+           th:value="${term}">
+    <button type="submit" class="search-btn">Search</button>
+  </form>
+</div>
+
+<div class="results">
+
+  <h2 th:if="${result != null}"
+      th:text="'Resultados para: ' + ${term}"></h2>
+
+  <div th:each="i : ${result.items}" class="item">
+    <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
+
+    <div class="meta">
+      Autor: <span th:text="${i.author}"></span> •
+      Pontos: <span th:text="${i.points}"></span> •
+      Comentários: <span th:text="${i.comments}"></span> •
+      <span th:text="${i.createdAt}"></span>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div th:if="${result.totalPages > 1}" class="pagination">
+    <a th:each="p : ${#numbers.sequence(0, result.totalPages-1)}"
+       th:href="@{'/hn'(term=${term}, page=${p})}"
+       th:text="${p+1}"
+       th:classappend="${p == result.page} ? 'current'">
+    </a>
+  </div>
+
+</div>
 
 </body>
 </html>
+

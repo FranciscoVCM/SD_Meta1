@@ -5,6 +5,7 @@ import com.googol.model.CrawlResult;
 import com.googol.model.PageDocument;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
+import com.googol.model.StatsSnapshot;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -72,10 +73,11 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         return index.backlinks(url);
     }
 
-    /**
-     * ⚠️ REMOVIDO: stats() local deixou de existir na Meta 2.
-     * Stats agora só vêm do Gateway.
-     */
+    /** NOVO — exigido pelo GatewayServer */
+    @Override
+    public synchronized StatsSnapshot barrelStats() throws RemoteException {
+        return index.stats();
+    }
 
     // ============================
     // Snapshotting
@@ -109,12 +111,5 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
             System.err.println("[Barrel] snapshot load failed: " + e);
         }
     }
-
-    {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                synchronized (BarrelReplica.this) { persist(); }
-            } catch (Exception ignored) {}
-        }));
-    }
 }
+

@@ -10,13 +10,14 @@ import java.rmi.RemoteException;
 import java.util.List;
 
 public interface Barrel extends Remote {
-    void append(CrawlResult result) throws RemoteException;
 
-    SearchResult search(SearchQuery query) throws RemoteException;
+    void append(CrawlResult r) throws RemoteException;
+
+    SearchResult search(SearchQuery q) throws RemoteException;
 
     int inlinks(String url) throws RemoteException;
 
-    //StatsSnapshot stats() throws RemoteException;
-
     List<String> backlinks(String url) throws RemoteException;
+
+    StatsSnapshot barrelStats() throws RemoteException;
 }

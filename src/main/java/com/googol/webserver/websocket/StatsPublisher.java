@@ -1,7 +1,8 @@
 package com.googol.webserver.websocket;
 
-import com.googol.webserver.rmi.GatewayService;
 import com.googol.model.StatsSnapshot;
+import com.googol.webserver.rmi.GatewayService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,13 +21,11 @@ public class StatsPublisher {
 
     @Scheduled(fixedRate = 1500)
     public void publishStats() {
+
         StatsSnapshot s = gateway.stats();
-        if (s == null)
-            return;
-        msg.convertAndSend("/topic/queue", s.urlsInQueue);
-        // -------------------------------
+        if (s == null) return;
+
         // TOP QUERIES
-        // -------------------------------
         List<Object> top = new ArrayList<>();
         for (String q : s.topQueries) {
             String[] parts = q.split("\\s+\\(");
@@ -34,21 +33,15 @@ public class StatsPublisher {
 
             String term = parts[0];
             int count = Integer.parseInt(parts[1].replace(")", ""));
-
             top.add(Map.of("term", term, "count", count));
         }
 
-        // -------------------------------
         // BARRELS
-        // -------------------------------
         List<Object> barrels = new ArrayList<>();
-
         for (var e : s.barrelNumDocs.entrySet()) {
-
             String name = e.getKey();
             int docs = e.getValue();
-
-            double latency = s.barrelAvgLatencySec.getOrDefault(name, -1.0);
+            double latency = s.barrelAvgLatencySec.getOrDefault(name, 0.0);
 
             barrels.add(Map.of(
                     "name", name,
@@ -57,9 +50,7 @@ public class StatsPublisher {
             ));
         }
 
-        // -------------------------------
-        // CONSTRUIR OBJETO FINAL PARA O BROWSER
-        // -------------------------------
+        // SEND PACKET
         var packet = Map.of(
                 "topQueries", top,
                 "barrels", barrels,

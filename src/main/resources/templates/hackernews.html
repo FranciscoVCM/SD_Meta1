@@ -118,7 +118,7 @@
 <div class="results">
 
   <h2 th:if="${result != null}"
-      th:text="'Resultados para: ' + ${term}"></h2>
+      th:text="' Resultados para: ' + ${term}"></h2>
 
   <div th:each="i : ${result.items}" class="item">
     <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
