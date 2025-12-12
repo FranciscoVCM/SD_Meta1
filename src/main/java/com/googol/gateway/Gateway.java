@@ -25,4 +25,5 @@ public interface Gateway extends Remote {
     int inlinks(String url) throws RemoteException;
     List<String> backlinks(String url) throws RemoteException;
     StatsSnapshot stats() throws RemoteException;
+
 }

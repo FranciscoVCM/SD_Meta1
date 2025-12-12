@@ -20,4 +20,6 @@ public interface Barrel extends Remote {
     List<String> backlinks(String url) throws RemoteException;
 
     StatsSnapshot barrelStats() throws RemoteException;
+
+    String getName() throws RemoteException;
 }

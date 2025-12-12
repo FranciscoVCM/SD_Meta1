@@ -20,6 +20,7 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     private InvertedIndex index = new InvertedIndex();
 
     private final Path snapshotPath;
+    private final String name;   // <<<<<<<<<<<<<<<<<<<<<< NOVO
     private static final int SAVE_EVERY = 100;
     private int appendedSinceSave = 0;
 
@@ -30,8 +31,10 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     public BarrelReplica(String snapshotFile) throws RemoteException {
         super();
         this.snapshotPath = Path.of(snapshotFile);
+        this.name = snapshotFile;    // identifica o barrel pelo nome do snapshot
         loadIfExists();
 
+        // persistência segura ao terminar o processo
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 synchronized (BarrelReplica.this) { persist(); }
@@ -73,10 +76,15 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         return index.backlinks(url);
     }
 
-    /** NOVO — exigido pelo GatewayServer */
     @Override
     public synchronized StatsSnapshot barrelStats() throws RemoteException {
         return index.stats();
+    }
+
+    // NOVO — obrigatório na interface Barrel
+    @Override
+    public String getName() throws RemoteException {
+        return name;
     }
 
     // ============================
@@ -85,9 +93,10 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
     private void persist() {
         try {
-            Files.createDirectories(
-                    snapshotPath.getParent() == null ? Path.of(".") : snapshotPath.getParent()
-            );
+            Path folder = snapshotPath.getParent();
+            if (folder != null) {
+                Files.createDirectories(folder);
+            }
             try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(snapshotPath))) {
                 out.writeObject(index);
             }
@@ -112,4 +121,3 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         }
     }
 }
-

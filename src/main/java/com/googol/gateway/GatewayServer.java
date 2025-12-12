@@ -98,7 +98,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
             // enfileirar novos links
             for (String out : r.outlinks) {
-                queue.add(out);
+                submitUrl(out);
             }
 
         } catch (Exception e) {
@@ -164,9 +164,8 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
                 totalTerms += bs.numTerms;
                 totalPostings += bs.numPostings;
 
-                s.barrelNumDocs.put(b.toString(), bs.numDocs);
-                s.barrelAvgLatencySec.put(b.toString(), bs.lastSearchMs / 1000.0);
-
+                s.barrelNumDocs.put(b.getName(), bs.numDocs);
+                s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
             } catch (Exception ignored) {}
         }
 

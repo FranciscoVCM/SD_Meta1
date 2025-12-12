@@ -35,8 +35,8 @@ public class GatewayLauncher {
         String h2 = System.getenv().getOrDefault("B2_HOST", "127.0.0.1");
 
         // 4) Lookups dos barrels
-        Barrel b1 = RmiUtils.lookup(h1, p1, n1, Barrel.class);
-        Barrel b2 = RmiUtils.lookup(h2, p2, n2, Barrel.class);
+        Barrel b1 = waitForBarrel(h1, p1, n1);
+        Barrel b2 = waitForBarrel(h2, p2, n2);
 
         // 5) Instancia e publica
         GatewayServer impl = new GatewayServer(List.of(b1, b2));
@@ -47,4 +47,15 @@ public class GatewayLauncher {
                 " (connected to " + n1 + "@" + h1 + ":" + p1 +
                 " and " + n2 + "@" + h2 + ":" + p2 + ")");
     }
+    private static Barrel waitForBarrel(String host, int port, String name) throws Exception {
+        while (true) {
+            try {
+                return RmiUtils.lookup(host, port, name, Barrel.class);
+            } catch (Exception e) {
+                System.out.println("[Gateway] Barrel " + name + " offline… retrying");
+                Thread.sleep(800);
+            }
+        }
+    }
+
 }
