@@ -1,51 +1,162 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
     <title>Googol Results</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
-        textarea, input[type="text"], input[type="number"], button, select {
-            width: 100%;
-            max-width: 500px;
-            margin-top: .5rem;
-            box-sizing: border-box;
-        }
-
         body {
-            padding: 1rem;
-            font-family: Arial, sans-serif;
+            background: #2e2a38;
+            color: white;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
-        table {
+        /* Top bar */
+        .top-bar {
             width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            background: #241f2d;
         }
 
-        td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #d8b4ff;
+            margin-right: 20px;
+            text-decoration: none;
+        }
+
+        .search-container {
+            flex: 1;
+            display: flex;
+            background: white;
+            border-radius: 30px;
+            padding: 8px 16px;
+            align-items: center;
+        }
+
+        .search-container input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 8px;
+        }
+
+        .search-btn {
+            background: #f1eef7;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .search-btn:hover {
+            background: #e0d9f0;
+        }
+
+        /* Results list */
+        .results {
+            margin: 30px auto;
+            max-width: 900px;
+            padding: 0 20px;
+        }
+
+        .result-item {
+            margin-bottom: 28px;
+        }
+
+        .result-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #bda0ff;
+            text-decoration: none;
+        }
+
+        .result-url {
+            color: #d1c3ff;
+            font-size: 14px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .snippet {
+            color: #eae6ff;
+            font-size: 15px;
+            line-height: 1.4;
+            margin-top: 5px;
+        }
+
+        /* Pagination */
+        .pagination {
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .pagination a {
+            margin: 0 8px;
+            padding: 8px 14px;
+            background: #423857;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        .pagination a:hover {
+            background: #5c5078;
+        }
+
+        .pagination .current {
+            background: #d8b4ff;
+            color: black;
+            font-weight: bold;
         }
     </style>
 </head>
+
 <body>
 
-<h1 th:text="'Results for: ' + ${terms}"></h1>
+<!-- Top search bar -->
+<div class="top-bar">
+    <a class="logo" href="/">Googol</a>
 
-<div th:if="${result == null}">
-    <p>Gateway offline.</p>
+    <form action="/search" method="get" class="search-container">
+        <input type="text" name="terms" th:value="${terms}">
+        <button type="submit" class="search-btn">Search</button>
+    </form>
 </div>
 
-<table th:if="${result != null}">
-    <tr>
-        <th>#</th><th>Title</th><th>URL</th>
-    </tr>
-    <tr th:each="item,i : ${result.items}">
-        <td th:text="${i.index+1}"></td>
-        <td th:text="${item.title}"></td>
-        <td><a th:href="${item.url}" th:text="${item.url}"></a></td>
-    </tr>
-</table>
+<!-- Results -->
+<div class="results">
+    <h2 th:text="'Resultados para: ' + ${terms}"></h2>
+
+    <div th:if="${result.total == 0}">
+        <p>Nenhum resultado encontrado.</p>
+    </div>
+
+    <div th:each="item : ${result.items}" class="result-item">
+        <a th:href="${item.url}" th:text="${item.title}" class="result-title"></a>
+        <span th:text="${item.url}" class="result-url"></span>
+        <p class="snippet" th:text="${item.snippet}"></p>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" th:if="${result.total > 10}">
+        <a th:each="i : ${#numbers.sequence(1, (result.total / 10) + 1)}"
+           th:href="@{'/search'(terms=${terms}, page=${i})}"
+           th:text="${i}"
+           th:classappend="${i == result.page} ? 'current' : ''">
+        </a>
+    </div>
+
+</div>
 
 </body>
 </html>

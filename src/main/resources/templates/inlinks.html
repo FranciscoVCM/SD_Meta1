@@ -1,35 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Inlinks</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        textarea, input[type="text"], input[type="number"], button, select {
-            width: 100%;
-            max-width: 500px;
-            margin-top: .5rem;
-            box-sizing: border-box;
-        }
-
-        body {
-            padding: 1rem;
-            font-family: Arial, sans-serif;
-        }
-
-        table {
-            width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
-        }
-
-        td, th {
-            padding: .5rem;
-            border-bottom: 1px solid #ccc;
-        }
+        body { padding: 1rem; font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; max-width: 600px; }
+        td, th { padding: .5rem; border-bottom: 1px solid #ccc; }
     </style>
 </head>
 <body>
+
+<h2>Inlinks para: <span th:text="${url}"></span></h2>
+
+<p>Total: <b th:text="${inlinks}"></b></p>
+
+<a href="/">Voltar</a>
 
 </body>
 </html>

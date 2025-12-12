@@ -12,11 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DownloaderManager {
 
     // === Config do crawler===
-    private static final int MAX_PAGES = 500;   // orçamento total de páginas
+    private static final int MAX_PAGES = 3000;   // orçamento total de páginas
     private static final int MAX_DEPTH = 4;     // profundidade máxima
 
     // nº de workers/robots configurável
-    private volatile int numWorkers = 1;
+    private volatile int numWorkers = 3;
 
     // réplicas destino (Barrels)
     private final List<Barrel> barrels;

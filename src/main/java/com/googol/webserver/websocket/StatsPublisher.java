@@ -20,11 +20,10 @@ public class StatsPublisher {
 
     @Scheduled(fixedRate = 1500)
     public void publishStats() {
-
         StatsSnapshot s = gateway.stats();
         if (s == null)
             return;
-
+        msg.convertAndSend("/topic/queue", s.urlsInQueue);
         // -------------------------------
         // TOP QUERIES
         // -------------------------------

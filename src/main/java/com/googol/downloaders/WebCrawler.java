@@ -16,7 +16,8 @@ public class WebCrawler {
 
     // identifica-te como crawler académico
     private static final String UA =
-            "GoogolBot/1.0 (+https://example.edu/SD_Meta1; student crawler)";
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    + "(KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
     public static CrawlResult crawl(String url) {
         CrawlResult r = new CrawlResult();
