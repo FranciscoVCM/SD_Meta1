@@ -5,8 +5,6 @@ import com.googol.model.CrawlResult;
 import com.googol.model.SearchQuery;
 import com.googol.model.SearchResult;
 import com.googol.model.StatsSnapshot;
-
-import com.googol.downloaders.WebCrawler;
 import com.googol.downloaders.Worker;
 
 import java.rmi.RemoteException;
@@ -18,7 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     private final BlockingQueue<String> queue =
-            new PriorityBlockingQueue<>(2000, Comparator.comparing(s -> s.startsWith("USER:") ? 0 : 1));
+            new PriorityBlockingQueue<>(2000,
+                    Comparator.comparing(s -> s.startsWith("USER:") ? 0 : 1));
 
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
     private final List<Worker> workers = new CopyOnWriteArrayList<>();
@@ -78,22 +77,40 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
     @Override
     public synchronized SearchResult search(SearchQuery q) {
+
         queryFreq.merge(q.terms.toLowerCase(), 1, Integer::sum);
-        return barrels.get(0).search(q);
+
+        try {
+            return barrels.get(0).search(q);
+        } catch (RemoteException e) {
+            SearchResult fallback = new SearchResult();
+            fallback.items = List.of();
+            fallback.total = 0;
+            return fallback;
+        }
     }
 
     @Override
     public synchronized int inlinks(String url) {
-        return barrels.get(0).inlinks(url);
+        try {
+            return barrels.get(0).inlinks(url);
+        } catch (RemoteException e) {
+            return 0;
+        }
     }
 
     @Override
     public synchronized List<String> backlinks(String url) {
-        return barrels.get(0).backlinks(url);
+        try {
+            return barrels.get(0).backlinks(url);
+        } catch (RemoteException e) {
+            return List.of();
+        }
     }
 
     @Override
     public synchronized StatsSnapshot stats() {
+
         StatsSnapshot s = new StatsSnapshot();
 
         s.pagesIndexed = pagesIndexed.get();
@@ -109,12 +126,11 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
                 s.barrelNumDocs.put(b.getName(), bs.numDocs);
                 s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
-
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) { }
         }
 
         queryFreq.entrySet().stream()
-                .sorted((a, b) -> b.getValue() - a.getValue())
+                .sorted((a,b)->b.getValue()-a.getValue())
                 .limit(10)
                 .forEach(e -> s.topQueries.add(e.getKey() + " (" + e.getValue() + ")"));
 
