@@ -26,7 +26,6 @@ public class SearchController {
             @RequestParam(defaultValue = "1") int page,
             Model model
     ) {
-        // Se não escreveu nada → não chama gateway, mostra página vazia
         if (terms.isBlank()) {
             model.addAttribute("terms", "");
             model.addAttribute("result", null);
@@ -36,20 +35,14 @@ public class SearchController {
 
         SearchResult result = gateway.search(terms, page);
 
-        // === Análise AI ===
-        String analysis = "";
-        try {
-            List<String> snippets =
-                    result.items.stream()
-                            .map(i -> i.snippet == null ? "" : i.snippet)
-                            .limit(5)
-                            .toList();
+        // Recolher até 50 snippets (globais, não só desta página)
+        List<String> snippets = result.items.stream()
+                .map(i -> i.snippet == null ? "" : i.snippet)
+                .filter(s -> !s.isBlank())
+                .limit(50)
+                .toList();
 
-            analysis = ai.analyzeSearch(terms, snippets);
-
-        } catch (Exception e) {
-            analysis = "(IA indisponível no momento)";
-        }
+        String analysis = ai.analyze(terms, snippets);
 
         model.addAttribute("terms", terms);
         model.addAttribute("result", result);

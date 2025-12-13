@@ -1,12 +1,11 @@
 package com.googol.webserver.rest;
 
 import org.springframework.stereotype.Service;
-
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class AIService {
@@ -14,29 +13,70 @@ public class AIService {
     private static final String OLLAMA_URL = "http://localhost:11434/api/generate";
     private static final String MODEL = "gemma2:2b";
 
-    public String analyzeSearch(String query, List<String> snippets) {
+    /** Cache: termo → análise gerada */
+    private final Map<String, CachedAnalysis> cache = new HashMap<>();
 
-        if (query == null || query.isBlank()) {
+    private static class CachedAnalysis {
+        String analysis;
+        int usedSnippets;   // quantos snippets foram usados na última geração
+    }
+
+    /**
+     * Processa resumos incrementais:
+     * - Gera com 0 snippets (fallback)
+     * - Atualiza quando chegam novos snippets, até 50
+     */
+    public synchronized String analyze(String term, List<String> newSnippets) {
+
+        if (term == null || term.isBlank())
             return "Nenhuma análise disponível.";
+
+        newSnippets = newSnippets == null ? List.of() : newSnippets.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .limit(50)
+                .toList();
+
+        CachedAnalysis cached = cache.get(term);
+
+        // Se já tínhamos e não há snippets novos → devolve a mesma análise
+        if (cached != null && (newSnippets.size() <= cached.usedSnippets)) {
+            return cached.analysis;
         }
 
-        // Construir texto seguro
+        // Construir novo prompt
         StringBuilder sb = new StringBuilder();
-        sb.append("Termo pesquisado: ").append(query).append("\n");
-        sb.append("Trechos:\n");
+        sb.append("Termo pesquisado: ").append(term).append("\n");
 
-        if (snippets != null) {
-            for (String s : snippets) {
-                if (s != null && !s.isBlank())
-                    sb.append("- ").append(s.replace("\n", " ")).append("\n");
+        if (!newSnippets.isEmpty()) {
+            sb.append("Trechos relevantes:\n");
+            for (String s : newSnippets) {
+                sb.append("- ").append(s.replace("\n", " ")).append("\n");
             }
+        } else {
+            sb.append("Não há trechos disponíveis.\n");
         }
 
         String prompt = """
-                Faça uma análise curta (máx. 80 palavras) com base no termo e nos trechos apresentados.
+                Gere um resumo curto (máximo 500 caracteres) em português.
+                O resumo deve explicar o tema pesquisado, usando snippets se existirem.
 
+                Conteúdo:
                 %s
-                """.formatted(sb.toString());
+                """.formatted(sb);
+
+        String answer = callModel(prompt);
+
+        // Guardar na cache
+        CachedAnalysis c = new CachedAnalysis();
+        c.analysis = answer;
+        c.usedSnippets = newSnippets.size();
+        cache.put(term, c);
+
+        return answer;
+    }
+
+    /** ------------------------ CHAMADA AO OLLAMA ------------------------- */
+    private String callModel(String prompt) {
 
         try {
             URL url = URI.create(OLLAMA_URL).toURL();
@@ -44,11 +84,8 @@ public class AIService {
 
             con.setRequestMethod("POST");
             con.setDoOutput(true);
-            con.setConnectTimeout(8000);
-            con.setReadTimeout(20000);
             con.setRequestProperty("Content-Type", "application/json");
 
-            // JSON ESCAPADO CORRETAMENTE
             String payload = """
             {
               "model": "%s",
@@ -61,40 +98,33 @@ public class AIService {
                 os.write(payload.getBytes());
             }
 
-            int code = con.getResponseCode();
-            if (code != 200) {
-                return "⚠ Erro do modelo (HTTP " + code + ")";
+            if (con.getResponseCode() != 200) {
+                return "⚠ Erro ao gerar resumo.";
             }
 
-            // Ler JSON
-            StringBuilder resp = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
+            StringBuilder json = new StringBuilder();
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(con.getInputStream()))) {
+
                 String line;
                 while ((line = br.readLine()) != null)
-                    resp.append(line);
+                    json.append(line);
             }
 
-            return extractResponse(resp.toString());
+            return extract(json.toString());
 
-        } catch (IOException e) {
-            return """
-            ⚠ IA indisponível.
-
-            Verifica:
-              → ollama serve está a correr
-              → tens o modelo gemma2:2b instalado
-            """;
+        } catch (Exception e) {
+            return "⚠ IA indisponível no momento.";
         }
     }
 
-    // ESCAPE JSON COMPLETO
     private String jsonEscape(String s) {
         return s.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n");
     }
 
-    private String extractResponse(String json) {
+    private String extract(String json) {
         int i = json.indexOf("\"response\"");
         if (i < 0) return "Erro ao interpretar resposta da IA.";
 
@@ -102,9 +132,13 @@ public class AIService {
         int end = json.indexOf("\"", start);
         if (start < 0 || end < 0) return "Erro ao ler resposta da IA.";
 
-        return json.substring(start, end)
+        String txt = json.substring(start, end)
                 .replace("\\n", "\n")
                 .trim();
+
+        if (txt.length() > 500)
+            txt = txt.substring(0, 500) + "...";
+
+        return txt;
     }
 }
-
