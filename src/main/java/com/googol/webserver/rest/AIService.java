@@ -14,107 +14,93 @@ public class AIService {
     private static final String OLLAMA_URL = "http://localhost:11434/api/generate";
     private static final String MODEL = "gemma2:2b";
 
-    /**
-     * Gera análise AI baseada nos snippets devolvidos pela pesquisa.
-     */
     public String analyzeSearch(String query, List<String> snippets) {
 
         if (query == null || query.isBlank()) {
-            return "";
+            return "Nenhuma análise disponível.";
         }
 
-        // Construção do prompt
+        // Construir texto seguro
         StringBuilder sb = new StringBuilder();
-        sb.append("Termo pesquisado: ").append(query).append("\n\n");
-        sb.append("Trechos relevantes das páginas encontradas:\n");
+        sb.append("Termo pesquisado: ").append(query).append("\n");
+        sb.append("Trechos:\n");
 
-        for (int i = 0; i < Math.min(snippets.size(), 5); i++) {
-            sb.append("- ").append(snippets.get(i)).append("\n");
+        if (snippets != null) {
+            for (String s : snippets) {
+                if (s != null && !s.isBlank())
+                    sb.append("- ").append(s.replace("\n", " ")).append("\n");
+            }
         }
 
         String prompt = """
-                Produza uma análise curta (máximo 80 palavras)
-                sobre o termo pesquisado, usando os trechos fornecidos.
-                Foque-se numa explicação geral do tema, não num resumo das páginas.
+                Faça uma análise curta (máx. 80 palavras) com base no termo e nos trechos apresentados.
 
-                Conteúdo:
                 %s
-                """.formatted(sb);
+                """.formatted(sb.toString());
 
         try {
-            // Configurar ligação ao Ollama
             URL url = URI.create(OLLAMA_URL).toURL();
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
+
             con.setRequestMethod("POST");
             con.setDoOutput(true);
-            con.setConnectTimeout(5000);
-            con.setReadTimeout(15000);
+            con.setConnectTimeout(8000);
+            con.setReadTimeout(20000);
             con.setRequestProperty("Content-Type", "application/json");
 
-            // JSON moderno aceito pelo Ollama
+            // JSON ESCAPADO CORRETAMENTE
             String payload = """
             {
-                "model": "%s",
-                "prompt": "%s",
-                "stream": false
+              "model": "%s",
+              "prompt": "%s",
+              "stream": false
             }
-            """.formatted(MODEL, escape(prompt));
+            """.formatted(MODEL, jsonEscape(prompt));
 
-            // Enviar prompt
             try (OutputStream os = con.getOutputStream()) {
                 os.write(payload.getBytes());
             }
 
-            // Validar resposta HTTP
-            int status = con.getResponseCode();
-            if (status != 200) {
-                return "⚠ Erro do modelo (HTTP %d)".formatted(status);
+            int code = con.getResponseCode();
+            if (code != 200) {
+                return "⚠ Erro do modelo (HTTP " + code + ")";
             }
 
-            // Ler conteúdo completo da resposta
-            StringBuilder json = new StringBuilder();
+            // Ler JSON
+            StringBuilder resp = new StringBuilder();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
                 String line;
                 while ((line = br.readLine()) != null)
-                    json.append(line);
+                    resp.append(line);
             }
 
-            return extractResponse(json.toString());
+            return extractResponse(resp.toString());
 
         } catch (IOException e) {
             return """
             ⚠ IA indisponível.
 
-            Certifica-te que tens o Ollama a correr:
-
-              → abre terminal e executa:  ollama serve
-
-            Detalhes financeiros:
-            """ + e.getMessage();
+            Verifica:
+              → ollama serve está a correr
+              → tens o modelo gemma2:2b instalado
+            """;
         }
     }
 
-    /**
-     * Escapa aspas dentro do prompt.
-     */
-    private String escape(String s) {
-        return s.replace("\"", "\\\"");
+    // ESCAPE JSON COMPLETO
+    private String jsonEscape(String s) {
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n");
     }
 
-    /**
-     * Extrai apenas o campo "response" do JSON devolvido pelo Ollama.
-     */
     private String extractResponse(String json) {
+        int i = json.indexOf("\"response\"");
+        if (i < 0) return "Erro ao interpretar resposta da IA.";
 
-        if (json == null) return "(Resposta vazia)";
-
-        int idx = json.indexOf("\"response\"");
-        if (idx < 0) return "(Sem campo 'response' na resposta da IA)";
-
-        int start = json.indexOf("\"", idx + 11) + 1;
-        int end   = json.indexOf("\"", start);
-
-        if (start <= 0 || end <= 0) return "(Erro ao interpretar JSON do Ollama)";
+        int start = json.indexOf("\"", i + 11) + 1;
+        int end = json.indexOf("\"", start);
+        if (start < 0 || end < 0) return "Erro ao ler resposta da IA.";
 
         return json.substring(start, end)
                 .replace("\\n", "\n")
