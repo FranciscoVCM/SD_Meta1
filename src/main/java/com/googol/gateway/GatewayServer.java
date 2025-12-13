@@ -15,9 +15,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
+    /* ===============================
+          QUEUE + STRUCTURES
+       =============================== */
+
     private final BlockingQueue<String> queue =
-            new PriorityBlockingQueue<>(2000,
-                    Comparator.comparing(s -> s.startsWith("USER:") ? 0 : 1));
+            new PriorityBlockingQueue<>(
+                    2000,
+                    Comparator.comparing(s -> s.startsWith("USER:") ? 0 : 1)
+            );
 
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
     private final List<Worker> workers = new CopyOnWriteArrayList<>();
@@ -33,6 +39,10 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         this.barrels = barrels;
     }
 
+    /* ===============================
+                URL SUBMISSION
+       =============================== */
+
     @Override
     public synchronized void indexUrl(String url) {
         if (seen.add(url))
@@ -40,12 +50,19 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     }
 
     private void enqueueUrl(String url) {
-        if (url == null || !url.startsWith("http")) return;
-        if (pagesIndexed.get() >= MAX_PAGES) return;
+        if (url == null || !url.startsWith("http"))
+            return;
+
+        if (pagesIndexed.get() >= MAX_PAGES)
+            return;
 
         if (seen.add(url))
             queue.add(url);
     }
+
+    /* ===============================
+                DOWNLOADER MGMT
+       =============================== */
 
     @Override
     public synchronized void registerDownloader(Worker w) {
@@ -60,41 +77,69 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
         return url.startsWith("USER:") ? url.substring(5) : url;
     }
 
+    /* ===============================
+               RECEIVE CRAWL RESULTS
+       =============================== */
+
     @Override
     public synchronized void submitResult(CrawlResult r) {
-        if (r == null || r.url == null) return;
+        if (r == null || r.url == null)
+            return;
 
+        // Fanout para todas as réplicas Barrel
         for (Barrel b : barrels) {
-            try { b.append(r); }
-            catch (Exception ignored) {}
+            try {
+                b.append(r);
+            } catch (Exception ignored) { }
         }
 
         pagesIndexed.incrementAndGet();
 
+        // submit outlinks to queue
         for (String out : r.outlinks)
             enqueueUrl(out);
     }
 
+    /* ===============================
+                  SEARCH
+       =============================== */
+
     @Override
     public synchronized SearchResult search(SearchQuery q) {
 
+        // Update query frequency (top searches)
         queryFreq.merge(q.terms.toLowerCase(), 1, Integer::sum);
 
         try {
-            return barrels.get(0).search(q);
+            Barrel b = barrels.get(0);
+
+            // medição correta de latência
+            long t0 = System.currentTimeMillis();
+            SearchResult res = b.search(q);
+            long t1 = System.currentTimeMillis();
+
+            res.lastSearchMs = (t1 - t0);
+            return res;
+
         } catch (RemoteException e) {
-            SearchResult fallback = new SearchResult();
-            fallback.items = List.of();
-            fallback.total = 0;
-            return fallback;
+
+            SearchResult empty = new SearchResult();
+            empty.items = List.of();
+            empty.total = 0;
+            empty.lastSearchMs = -1;
+            return empty;
         }
     }
+
+    /* ===============================
+                LINK ANALYSIS
+       =============================== */
 
     @Override
     public synchronized int inlinks(String url) {
         try {
             return barrels.get(0).inlinks(url);
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             return 0;
         }
     }
@@ -103,20 +148,25 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
     public synchronized List<String> backlinks(String url) {
         try {
             return barrels.get(0).backlinks(url);
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             return List.of();
         }
     }
 
+    /* ===============================
+                  STATS
+       =============================== */
+
     @Override
     public synchronized StatsSnapshot stats() {
-
         StatsSnapshot s = new StatsSnapshot();
 
+        // General stats
         s.pagesIndexed = pagesIndexed.get();
         s.urlsInQueue = queue.size();
         s.activeDownloaders = workers.size();
 
+        // Aggregate stats from barrels
         for (Barrel b : barrels) {
             try {
                 StatsSnapshot bs = b.barrelStats();
@@ -125,14 +175,20 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
                 s.numPostings += bs.numPostings;
 
                 s.barrelNumDocs.put(b.getName(), bs.numDocs);
+
+                // **Agora latência é REAL**
                 s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
+
             } catch (Exception ignored) { }
         }
 
+        // Top queries
         queryFreq.entrySet().stream()
-                .sorted((a,b)->b.getValue()-a.getValue())
+                .sorted((a, b) -> b.getValue() - a.getValue())
                 .limit(10)
-                .forEach(e -> s.topQueries.add(e.getKey() + " (" + e.getValue() + ")"));
+                .forEach(e -> s.topQueries.add(
+                        e.getKey() + " (" + e.getValue() + ")"
+                ));
 
         return s;
     }

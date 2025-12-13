@@ -16,6 +16,9 @@ public class WebCrawler {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                     + "(KHTML, like Gecko) Chrome/122 Safari/537.36";
 
+    /**
+     * Download, parse, extract metadata, snippet, outlinks.
+     */
     public static CrawlResult crawl(String url) {
 
         CrawlResult r = new CrawlResult();
@@ -25,7 +28,7 @@ public class WebCrawler {
             Connection.Response resp = Jsoup
                     .connect(url)
                     .userAgent(UA)
-                    .timeout(20000) // maior timeout
+                    .timeout(20000)
                     .followRedirects(true)
                     .ignoreHttpErrors(true)
                     .ignoreContentType(true)
@@ -39,27 +42,28 @@ public class WebCrawler {
             Document doc = resp.parse();
 
             /* ============================
-               TÍTULO
+               TITLE
             ============================ */
             r.title = Optional.ofNullable(doc.title()).orElse(url);
             if (r.title.isBlank()) r.title = url;
 
             /* ============================
-               TEXTO RICO (melhor indexação)
+               RICH TEXT EXTRACTION
             ============================ */
             StringBuilder rich = new StringBuilder();
 
-            extract(rich, doc.select("meta[name=description]"), "content");
-            extract(rich, doc.select("h1,h2,h3,h4"));
-            extract(rich, doc.select("p,li"));
-            extract(rich, doc.select("article"));
-            extract(rich, doc.select("div"));
+            extractText(rich, doc.select("meta[name=description]"), "content");
+            extractText(rich, doc.select("h1,h2,h3,h4"));
+            extractText(rich, doc.select("p,li"));
+            extractText(rich, doc.select("article"));
+            extractText(rich, doc.select("section"));
+            extractText(rich, doc.select("div"));
 
-            String text = rich.toString().replaceAll("\\s+"," ").trim();
+            String text = rich.toString().replaceAll("\\s+", " ").trim();
             r.text = text;
 
             /* ============================
-               TOKENIZAÇÃO + SNIPPET
+               TERMS + SNIPPET
             ============================ */
             r.terms = TextUtils.tokenize(text);
             r.snippet = TextUtils.makeSnippet(text, r.terms);
@@ -76,8 +80,8 @@ public class WebCrawler {
                     out.add(abs);
                 if (out.size() >= 100) break;
             }
-            r.outlinks = out;
 
+            r.outlinks = out;
             return r;
 
         } catch (Exception e) {
@@ -85,17 +89,23 @@ public class WebCrawler {
         }
     }
 
-    private static void extract(StringBuilder sb, Elements els) {
+    /* ==========================================================
+                     INTERNAL EXTRACTION HELPERS
+       ========================================================== */
+
+    private static void extractText(StringBuilder sb, Elements els) {
         for (Element e : els) {
             String t = e.text();
-            if (t.length() > 2) sb.append(' ').append(t);
+            if (t.length() > 2)
+                sb.append(' ').append(t);
         }
     }
 
-    private static void extract(StringBuilder sb, Elements els, String attr) {
+    private static void extractText(StringBuilder sb, Elements els, String attr) {
         for (Element e : els) {
             String t = e.attr(attr);
-            if (t.length() > 2) sb.append(' ').append(t);
+            if (t.length() > 2)
+                sb.append(' ').append(t);
         }
     }
 

@@ -11,11 +11,19 @@ import java.util.*;
 
 public class InvertedIndex implements Serializable {
 
+    /* ==========================================================
+                        INTERNAL STRUCTURES
+       ========================================================== */
+
     private final Map<String, Map<String, Integer>> postings = new HashMap<>();
     private final Map<String, Set<String>> inlinksMap = new HashMap<>();
     private final Map<String, PageDocument> docs = new HashMap<>();
 
     private static final int PAGE_SIZE = 10;
+
+    /* ==========================================================
+                            ADD DOCUMENT
+       ========================================================== */
 
     public synchronized void add(PageDocument doc) {
 
@@ -24,10 +32,14 @@ public class InvertedIndex implements Serializable {
 
         PageDocument old = docs.put(doc.normalizedUrl, doc);
 
-        if (old != null && old.outlinks != null)
-            for (String to : old.outlinks)
+        // Remove old inlinks
+        if (old != null && old.outlinks != null) {
+            for (String to : old.outlinks) {
                 inlinksMap.getOrDefault(to, Set.of()).remove(old.normalizedUrl);
+            }
+        }
 
+        // Add new inlinks
         if (doc.outlinks != null) {
             doc.outlinksCount = doc.outlinks.size();
             for (String raw : doc.outlinks) {
@@ -38,6 +50,7 @@ public class InvertedIndex implements Serializable {
 
         doc.inlinks = inlinks(doc.normalizedUrl);
 
+        // Tokenization + TF indexing
         List<String> terms = TextUtils.tokenize(doc.text);
         if (terms.isEmpty()) return;
 
@@ -49,6 +62,10 @@ public class InvertedIndex implements Serializable {
                     .put(doc.normalizedUrl, e.getValue());
         }
     }
+
+    /* ==========================================================
+                           SEARCH URL SET
+       ========================================================== */
 
     public synchronized List<String> searchUrls(List<String> rawTerms) {
 
@@ -64,29 +81,35 @@ public class InvertedIndex implements Serializable {
         Set<String> candidate = null;
 
         for (String t : terms) {
-            Map<String,Integer> m = postings.get(t);
+
+            Map<String, Integer> m = postings.get(t);
             if (m == null) return List.of();
 
-            if (candidate == null) candidate = new HashSet<>(m.keySet());
+            if (candidate == null)
+                candidate = new HashSet<>(m.keySet());
             else {
                 candidate.retainAll(m.keySet());
-                if (candidate.isEmpty()) return List.of();
+                if (candidate.isEmpty())
+                    return List.of();
             }
         }
 
         if (candidate == null) return List.of();
 
+        // Ranking by inlinks + TF + title relevance + recency
         Map<String, Integer> tfScore = new HashMap<>();
         for (String url : candidate) {
             int score = 0;
             for (String t : terms)
                 score += postings.get(t).getOrDefault(url, 0);
+
             tfScore.put(url, score);
         }
 
         List<String> list = new ArrayList<>(candidate);
 
-        list.sort((a,b)->{
+        list.sort((a, b) -> {
+
             PageDocument A = docs.get(a);
             PageDocument B = docs.get(b);
 
@@ -101,19 +124,28 @@ public class InvertedIndex implements Serializable {
 
             boolean aTitle = A != null && A.title != null &&
                     terms.stream().anyMatch(t -> A.title.toLowerCase().contains(t));
+
             boolean bTitle = B != null && B.title != null &&
                     terms.stream().anyMatch(t -> B.title.toLowerCase().contains(t));
 
             if (aTitle && !bTitle) return -1;
             if (bTitle && !aTitle) return 1;
 
-            return Long.compare(B.timestamp, A.timestamp);
+            long ta = (A != null ? A.timestamp : 0);
+            long tb = (B != null ? B.timestamp : 0);
+
+            return Long.compare(tb, ta);
         });
 
         return list;
     }
 
+    /* ==========================================================
+                          FINAL SEARCH
+       ========================================================== */
+
     public synchronized SearchResult search(SearchQuery q) {
+
         List<String> terms = TextUtils.tokenize(q.terms);
         List<String> urls = searchUrls(terms);
 
@@ -144,6 +176,10 @@ public class InvertedIndex implements Serializable {
         return out;
     }
 
+    /* ==========================================================
+                          INLINKS + BACKLINKS
+       ========================================================== */
+
     public synchronized int inlinks(String url) {
         url = TextUtils.normalizeUrl(url);
         return inlinksMap.getOrDefault(url, Set.of()).size();
@@ -154,7 +190,12 @@ public class InvertedIndex implements Serializable {
         return new ArrayList<>(inlinksMap.getOrDefault(url, Set.of()));
     }
 
+    /* ==========================================================
+                                 STATS
+       ========================================================== */
+
     public synchronized StatsSnapshot stats() {
+
         StatsSnapshot s = new StatsSnapshot();
         s.numDocs = docs.size();
         s.numTerms = postings.size();
@@ -164,7 +205,7 @@ public class InvertedIndex implements Serializable {
             pairs += m.size();
 
         s.numPostings = pairs;
+
         return s;
     }
 }
-
