@@ -15,7 +15,6 @@ public class WorkerImpl extends UnicastRemoteObject implements Worker {
 
     @Override
     public void submitResult(CrawlResult r) throws RemoteException {
-        // Não é chamado; é o Gateway que recebe resultados
     }
 }
 

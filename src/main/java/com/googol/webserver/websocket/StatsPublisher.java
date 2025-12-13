@@ -54,7 +54,7 @@ public class StatsPublisher {
                         "terms", s.numTerms,
                         "postings", s.numPostings
                 ),
-                "lastSearchMs", s.lastSearchMs
+                "lastSearchMs", s.barrelAvgLatencySec
         );
 
         msg.convertAndSend("/topic/stats", packet);

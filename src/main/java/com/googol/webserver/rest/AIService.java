@@ -22,7 +22,6 @@ public class AIService {
         this.snippetStore = snippetStore;
     }
 
-    /** cache de resumos por termo */
     private final Map<String, Cached> cache = new HashMap<>();
 
     private static class Cached {
@@ -130,7 +129,7 @@ public class AIService {
             return extract(json.toString());
 
         } catch (Exception e) {
-            return "⚠ IA indisponível no momento.";
+            return "IA indisponível no momento.";
         }
     }
 

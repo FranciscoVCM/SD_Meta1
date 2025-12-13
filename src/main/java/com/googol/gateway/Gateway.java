@@ -20,7 +20,6 @@ public interface Gateway extends Remote {
     void submitResult(CrawlResult r) throws RemoteException;
     void registerDownloader(com.googol.downloaders.Worker worker) throws RemoteException;
 
-    // === API antiga ===
     SearchResult search(SearchQuery q) throws RemoteException;
     int inlinks(String url) throws RemoteException;
     List<String> backlinks(String url) throws RemoteException;

@@ -68,7 +68,7 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     }
 
     /** ============================================
-     * PESQUISA (com medição de latência)
+     * PESQUISA
      * ============================================ */
     @Override
     public synchronized SearchResult search(SearchQuery q) throws RemoteException {

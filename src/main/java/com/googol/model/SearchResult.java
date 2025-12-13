@@ -10,7 +10,7 @@ public class SearchResult implements Serializable {
     public int page;
     public int total;
 
-    public long lastSearchMs;  // <----- ESTE CAMPO É OBRIGATÓRIO
+    public long lastSearchMs;
 
     public List<Item> items = new ArrayList<>();
 

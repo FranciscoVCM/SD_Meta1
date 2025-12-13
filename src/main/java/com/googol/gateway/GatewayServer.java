@@ -176,9 +176,8 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
                 s.barrelNumDocs.put(b.getName(), bs.numDocs);
 
-                // **Agora latência é REAL**
-                s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
 
+                s.barrelAvgLatencySec.put(b.getName(), bs.lastSearchMs / 1000.0);
             } catch (Exception ignored) { }
         }
 

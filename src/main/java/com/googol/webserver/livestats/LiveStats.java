@@ -6,7 +6,7 @@ import java.util.Map;
 public class LiveStats {
 
     public List<QueryCount> topQueries;
-    public Map<String, Double> latency;  // barrelName -> avgLatencySec
+    public Map<String, Double> latency;
     public long lastSearchMs;            // tempo da última pesquisa
 
     public static class QueryCount {

@@ -5,11 +5,6 @@ import com.googol.model.CrawlResult;
 import java.rmi.RemoteException;
 import java.util.List;
 
-/**
- * Fanout at least once para todas as réplicas Barrel
- * – Tenta varias vezes por réplica com backoff exponencial leve
- * – Devolve true se pelo menos uma réplica receber
- */
 public class ReliableMulticast {
 
     private static final int MAX_TRIES = 5;

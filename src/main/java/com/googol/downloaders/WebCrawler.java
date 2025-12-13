@@ -48,7 +48,7 @@ public class WebCrawler {
             if (r.title.isBlank()) r.title = url;
 
             /* ============================
-               RICH TEXT EXTRACTION
+               TEXT EXTRACTION
             ============================ */
             StringBuilder rich = new StringBuilder();
 

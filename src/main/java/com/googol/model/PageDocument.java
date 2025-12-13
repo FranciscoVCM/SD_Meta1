@@ -7,7 +7,7 @@ public class PageDocument implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public String url;              // URL original
-    public String normalizedUrl;    // URL normalizada (sem protocolo, sem #anchors, lowercase)
+    public String normalizedUrl;    // URL normalizada
     public String title;
     public String snippet;
     public String text;
