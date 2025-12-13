@@ -22,18 +22,34 @@ public class SearchController {
 
     @GetMapping("/search")
     public String search(
-            @RequestParam String terms,
+            @RequestParam(defaultValue = "") String terms,
             @RequestParam(defaultValue = "1") int page,
             Model model
     ) {
+        // Se não escreveu nada → não chama gateway, mostra página vazia
+        if (terms.isBlank()) {
+            model.addAttribute("terms", "");
+            model.addAttribute("result", null);
+            model.addAttribute("analysis", "");
+            return "search";
+        }
+
         SearchResult result = gateway.search(terms, page);
 
-        // extrair snippets para alimentar IA
-        List<String> snippets = result.items.stream()
-                .map(i -> i.snippet == null ? "" : i.snippet)
-                .toList();
+        // === Análise AI ===
+        String analysis = "";
+        try {
+            List<String> snippets =
+                    result.items.stream()
+                            .map(i -> i.snippet == null ? "" : i.snippet)
+                            .limit(5)
+                            .toList();
 
-        String analysis = ai.analyzeSearch(terms, snippets);
+            analysis = ai.analyzeSearch(terms, snippets);
+
+        } catch (Exception e) {
+            analysis = "(IA indisponível no momento)";
+        }
 
         model.addAttribute("terms", terms);
         model.addAttribute("result", result);

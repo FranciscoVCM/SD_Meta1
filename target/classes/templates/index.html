@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Googol — Página Inicial</title>
+
+  <style>
+    body {
+      background: #2b2535;
+      color: #f0e6ff;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    /* TOP BAR */
+    .top-bar {
+      width: 100%;
+      padding: 20px 30px;
+      display: flex;
+      align-items: center;
+      background: #241f2d;
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.23);
+    }
+
+    .logo {
+      font-size: 36px;
+      font-weight: bold;
+      color: #ff9248;
+      margin-right: 25px;
+      text-decoration: none;
+    }
+
+    /* MAIN WRAPPER */
+    .wrapper {
+      margin: 40px auto;
+      width: 95%;
+      max-width: 900px;
+      text-align: center;
+    }
+
+    .section-title {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #ffb782;
+    }
+
+    /* SEARCH + INDEX BOXES */
+    .input-box {
+      background: #3a3344;
+      padding: 25px;
+      border-radius: 20px;
+      margin-bottom: 35px;
+      text-align: left;
+    }
+
+    .input-box h3 {
+      margin: 0 0 15px 0;
+      color: #ffae6d;
+    }
+
+    .input-row {
+      display: flex;
+      background: white;
+      border-radius: 30px;
+      padding: 6px 20px;
+      align-items: center;
+    }
+
+    .input-row input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 18px;
+      padding: 10px;
+    }
+
+    .btn {
+      background: #ffb782;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: 0.3s;
+      margin-left: 10px;
+    }
+
+    .btn:hover {
+      background: #ffcaa4;
+    }
+
+    /* MESSAGES */
+    .msg {
+      padding: 12px;
+      background: #2a2431;
+      border-left: 4px solid #6dff7a;
+      color: #d6ffd8;
+      border-radius: 6px;
+      margin-bottom: 25px;
+    }
+
+    .error {
+      padding: 12px;
+      background: #2a2431;
+      border-left: 4px solid #ff6d6d;
+      color: #ffd6d6;
+      border-radius: 6px;
+      margin-bottom: 25px;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <a href="/" class="logo">Googol</a>
+</div>
+
+
+<!-- MAIN CONTENT -->
+<div class="wrapper">
+
+  <!-- SUCCESS MESSAGE -->
+  <div th:if="${msg}" class="msg" th:text="${msg}"></div>
+
+  <!-- ERROR MESSAGE -->
+  <div th:if="${error}" class="error" th:text="${error}"></div>
+
+
+  <!-- SEARCH BOX -->
+  <div class="input-box">
+    <h3>Pesquisar na Web</h3>
+
+    <form action="/search" method="get" class="input-row">
+      <input type="text" name="terms" placeholder="Pesquisar...">
+      <button class="btn">Pesquisar</button>
+    </form>
+  </div>
+
+
+  <!-- INDEX URL BOX -->
+  <div class="input-box">
+    <h3>Indexar nova URL</h3>
+
+    <form action="/index" method="post" class="input-row">
+      <input type="text" name="url" placeholder="https://example.com">
+      <button class="btn">Indexar</button>
+    </form>
+  </div>
+
+</div>
+
+</body>
+</html>

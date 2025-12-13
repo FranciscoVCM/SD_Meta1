@@ -8,34 +8,40 @@
   <style>
     body {
       background: #2e2a38;
-      color: white;
+      color: #f2ebff;
       margin: 0;
       padding: 0;
       font-family: Arial, Helvetica, sans-serif;
     }
 
+    /* =============================
+       TOP BAR
+    ============================== */
     .top-bar {
       width: 100%;
       padding: 20px;
       display: flex;
       align-items: center;
       background: #241f2d;
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.25);
     }
 
     .logo {
       font-size: 32px;
       font-weight: bold;
       color: #ff9248;
-      margin-right: 20px;
+      margin-right: 25px;
       text-decoration: none;
     }
 
     .search-container {
-      flex: 1;
+      flex: 0 1 600px;
+      max-width: 600px;
+      width: 100%;
       display: flex;
       background: white;
       border-radius: 30px;
-      padding: 8px 16px;
+      padding: 6px 20px;
       align-items: center;
     }
 
@@ -43,24 +49,43 @@
       flex: 1;
       border: none;
       outline: none;
-      font-size: 16px;
+      font-size: 17px;
       padding: 8px;
     }
 
     .search-btn {
-      background: #ffd0a3;
+      background: #ffb782;
       border: none;
-      padding: 10px 16px;
+      padding: 10px 18px;
       border-radius: 20px;
       cursor: pointer;
+      transition: 0.25s;
+    }
+
+    .search-btn:hover {
+      background: #ffcaa4;
+    }
+
+    /* =============================
+       RESULTS
+    ============================== */
+
+    .results {
+      margin: 40px auto;
+      width: 90%;
+      max-width: 900px;
     }
 
     .item {
-      margin: 20px auto;
-      padding: 20px;
+      margin: 25px 0;
+      padding: 22px;
       background: #3a3347;
-      max-width: 900px;
       border-radius: 10px;
+      transition: 0.2s;
+    }
+
+    .item:hover {
+      background: #433b54;
     }
 
     .item a {
@@ -70,18 +95,28 @@
     }
 
     .meta {
-      margin-top: 6px;
+      margin-top: 8px;
       font-size: 14px;
       color: #d9d1e6;
     }
 
+    .no-results {
+      text-align: center;
+      font-size: 20px;
+      margin-top: 30px;
+      color: #d0c5e6;
+    }
+
+    /* =============================
+       PAGINATION
+    ============================== */
     .pagination {
       text-align: center;
-      margin: 30px;
+      margin: 40px 0;
     }
 
     .pagination a {
-      margin: 0 8px;
+      margin: 0 6px;
       padding: 8px 14px;
       background: #423857;
       color: white;
@@ -104,22 +139,32 @@
 
 <body>
 
-<!-- Top bar -->
+<!-- TOP BAR -->
 <div class="top-bar">
   <a class="logo" href="/">Googol</a>
 
   <form action="/hn" method="get" class="search-container">
     <input type="text" name="term" placeholder="Pesquisar HackerNews..."
            th:value="${term}">
-    <button type="submit" class="search-btn">Search</button>
+    <button type="submit" class="search-btn">Pesquisar</button>
   </form>
 </div>
 
+
+<!-- RESULTS -->
 <div class="results">
 
-  <h2 th:if="${result != null}"
-      th:text="' Resultados para: ' + ${term}"></h2>
+  <!-- Title -->
+  <h2 th:if="${result != null and term != ''}"
+      th:text="'Resultados para: ' + ${term}">
+  </h2>
 
+  <!-- mostra mensagem apenas se houve pesquisa -->
+  <div th:if="${term != '' and result.items.empty}">
+    Nenhum resultado encontrado.
+  </div>
+
+  <!-- Items -->
   <div th:each="i : ${result.items}" class="item">
     <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
 
@@ -132,10 +177,10 @@
   </div>
 
   <!-- Pagination -->
-  <div th:if="${result.totalPages > 1}" class="pagination">
-    <a th:each="p : ${#numbers.sequence(0, result.totalPages-1)}"
+  <div th:if="${result != null and result.totalPages > 1}" class="pagination">
+    <a th:each="p : ${#numbers.sequence(0, result.totalPages - 1)}"
        th:href="@{'/hn'(term=${term}, page=${p})}"
-       th:text="${p+1}"
+       th:text="${p + 1}"
        th:classappend="${p == result.page} ? 'current'">
     </a>
   </div>
@@ -144,4 +189,3 @@
 
 </body>
 </html>
-

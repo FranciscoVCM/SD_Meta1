@@ -35,11 +35,13 @@
     }
 
     .search-container {
-      flex: 1;
+      flex: 0 1 600px;
+      max-width: 600px;
+      width: 100%;
       display: flex;
       background: white;
       border-radius: 30px;
-      padding: 6px 18px;
+      padding: 6px 20px;
       align-items: center;
     }
 
@@ -154,11 +156,11 @@
 
   <!-- Title -->
   <h2 th:if="${result != null and term != ''}"
-      th:text="'Resultados para: ' + term">
+      th:text="'Resultados para: ' + ${term}">
   </h2>
 
-  <!-- No results -->
-  <div th:if="${result != null and #lists.isEmpty(result.items)}" class="no-results">
+  <!-- mostra mensagem apenas se houve pesquisa -->
+  <div th:if="${term != '' and result.items.empty}">
     Nenhum resultado encontrado.
   </div>
 

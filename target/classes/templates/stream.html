@@ -8,11 +8,15 @@
         body {
             background: #2b2535;
             color: #f0e6ff;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             padding: 40px;
         }
 
-        h1 { text-align: center; font-size: 42px; }
+        h1 {
+            text-align: center;
+            font-size: 42px;
+            margin-bottom: 20px;
+        }
 
         .panel {
             background: #3a3344;
@@ -20,6 +24,12 @@
             width: 70%;
             margin: 20px auto;
             border-radius: 15px;
+            box-shadow: 0px 0px 8px rgba(0,0,0,0.25);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #ffae6d;
         }
 
         li {
@@ -52,30 +62,66 @@
     <p id="lastSearch">loading...</p>
 </div>
 
+
+<!-- JS Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <script>
+    // Safe JSON parsing
+    function safeJSON(str) {
+        try { return JSON.parse(str); }
+        catch { return {}; }
+    }
+
     let stomp = Stomp.over(new SockJS("/ws"));
+
     stomp.connect({}, () => {
 
+        /* ----------------------------
+           QUEUE SIZE STREAM
+        ----------------------------- */
         stomp.subscribe("/topic/queue", msg => {
+            if (!msg || !msg.body) return;
             document.getElementById("queueValue").innerText = msg.body;
         });
 
+
+        /* ----------------------------
+           STATS STREAM
+        ----------------------------- */
         stomp.subscribe("/topic/stats", msg => {
-            let data = JSON.parse(msg.body);
+            let data = safeJSON(msg.body);
 
-            let tq = "";
-            data.topQueries.forEach(q => { tq += `<li>${q.term} — ${q.count}</li>`; });
-            document.querySelector("#topQueries").innerHTML = tq;
+            // TOP QUERIES
+            let topPanel = document.getElementById("topQueries");
+            topPanel.innerHTML = "";
 
-            let lat = "";
-            data.barrels.forEach(b => { lat += `<li>${b.name}: ${b.avgLatency.toFixed(2)}s</li>`; });
-            document.querySelector("#latencies").innerHTML = lat;
+            if (data.topQueries && Array.isArray(data.topQueries)) {
+                data.topQueries.forEach(q => {
+                    if (q.term !== undefined && q.count !== undefined)
+                        topPanel.innerHTML += `<li>${q.term} — ${q.count}</li>`;
+                });
+            }
 
-            if (data.lastSearchMs !== undefined)
-                document.getElementById("lastSearch").innerText = data.lastSearchMs + " ms";
+            // BARREL LATENCIES
+            let latPanel = document.getElementById("latencies");
+            latPanel.innerHTML = "";
+
+            if (data.barrels && Array.isArray(data.barrels)) {
+                data.barrels.forEach(b => {
+                    let latency = b.avgLatency !== undefined ? b.avgLatency.toFixed(2) : "0.00";
+                    latPanel.innerHTML += `<li>${b.name}: ${latency}s</li>`;
+                });
+            }
+
+            // LAST SEARCH TIME
+            if (data.lastSearchMs !== undefined) {
+                let ms = Number(data.lastSearchMs);
+                if (isNaN(ms)) ms = 0;
+                document.getElementById("lastSearch").innerText =
+                    ms.toFixed(0) + " ms";
+            }
         });
     });
 </script>

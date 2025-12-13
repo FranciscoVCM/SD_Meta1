@@ -21,10 +21,18 @@ public class HNController {
             @RequestParam(defaultValue = "0") int page,
             Model model
     ) {
-        if (term.isBlank())
-            return "hackernews";
 
-        HNSearchResult result = hn.search(term, page);
+        HNSearchResult result;
+
+        if (term.isBlank()) {
+            // devolve resultado vazio, sem crashar
+            result = new HNSearchResult();
+            result.term = "";
+            result.page = 0;
+            result.totalPages = 0;
+        } else {
+            result = hn.search(term, page);
+        }
 
         model.addAttribute("term", term);
         model.addAttribute("result", result);

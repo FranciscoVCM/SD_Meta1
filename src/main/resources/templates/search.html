@@ -31,7 +31,9 @@
         }
 
         .search-container {
-            flex: 1;
+            flex: 0 1 600px;
+            max-width: 600px;
+            width: 100%;
             display: flex;
             background: white;
             border-radius: 30px;
@@ -188,53 +190,66 @@
 
     <!-- LEFT COLUMN: SEARCH RESULTS -->
     <div class="results">
-        <h2 th:if="${result != null}"
+
+        <!-- Título aparece sempre que o utilizador pesquisou algo -->
+        <h2 th:if="${terms != null and terms != ''}"
             th:text="'Resultados para: ' + ${terms}">
         </h2>
 
-        <div th:if="${result != null && result.items.size() == 0}"
+        <!-- Caso não haja resultados -->
+        <!-- Caso não haja resultados -->
+        <div th:if="(${terms != null and terms != ''})
+            and
+            (${result == null}
+             or ${result.items == null}
+             or ${result.items.size() == 0})"
              style="margin-top:20px; font-size:20px;">
             Nenhum resultado encontrado.
         </div>
 
-        <div th:each="i : ${result.items}" class="result-item">
 
-            <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
+        <!-- Lista de resultados -->
+        <div th:if="${result != null}">
+            <div th:each="i : ${result.items}" class="result-item">
 
-            <div class="snippet" th:text="${i.snippet}"></div>
+                <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
 
-            <div class="meta">
-                <span th:text="'Inlinks: ' + ${i.inlinks}"></span>
-                <span th:text="'Outlinks: ' + ${i.outlinks}"></span>
+                <div class="snippet" th:text="${i.snippet}"></div>
+
+                <div class="meta">
+                    <span th:text="'Inlinks: ' + ${i.inlinks}"></span>
+                    <span th:text="'Outlinks: ' + ${i.outlinks}"></span>
+                </div>
+
             </div>
-
         </div>
 
-
-        <!-- PAGINATION -->
-        <div th:if="${result != null && result.total > 10}" class="pagination">
+        <!-- Paginação -->
+        <div th:if="${result != null and result.total > 10}" class="pagination">
             <a th:each="p : ${#numbers.sequence(1, (result.total / 10) + 1)}"
                th:href="@{'/search'(terms=${terms}, page=${p})}"
                th:text="${p}"
                th:classappend="${p == result.page} ? 'current'">
             </a>
         </div>
+
     </div>
 
 
 
+
     <!-- RIGHT COLUMN: AI PANEL -->
-    <div class="side-panel">
+    <div class="side-panel" th:if="${result != null}">
         <h2>Análise AI:</h2>
 
-        <div class="ai-output"
-             th:if="${analysis != null}"
-             th:text="${analysis}">
-        </div>
+        <p th:if="${analysis == null or analysis == ''}">
+            Nenhuma análise disponível.
+        </p>
 
-        <div th:if="${analysis == null}">
-            <p>A análise inteligente ainda não está disponível.</p>
-        </div>
+        <pre th:if="${analysis != null and analysis != ''}"
+             th:text="${analysis}"
+             style="white-space: pre-wrap; margin-top: 10px;">
+    </pre>
     </div>
 
 </div>

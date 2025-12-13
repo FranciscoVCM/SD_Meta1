@@ -24,6 +24,7 @@
             border-radius: 15px;
             width: 80%;
             margin: 25px auto;
+            box-shadow: 0px 0px 8px rgba(0,0,0,0.25);
         }
 
         table {
@@ -38,8 +39,14 @@
         }
 
         th {
-            color: #cba6f7;
+            color: #ffae6d;
+            font-size: 18px;
             text-align: left;
+        }
+
+        .system-line {
+            font-size: 18px;
+            padding: 8px 0;
         }
     </style>
 </head>
@@ -47,20 +54,36 @@
 
 <h1>Estatísticas do Sistema (Tempo Real)</h1>
 
+<!-- =================== TOP QUERIES ====================== -->
 <div class="panel">
     <h2>Top 10 Pesquisas</h2>
     <table>
+        <thead>
+        <tr>
+            <th>Termo</th>
+            <th>Frequência</th>
+        </tr>
+        </thead>
         <tbody id="topQueries"></tbody>
     </table>
 </div>
 
+<!-- =================== BARRELS ====================== -->
 <div class="panel">
     <h2>Barrels</h2>
     <table>
+        <thead>
+        <tr>
+            <th>Nome</th>
+            <th># Documentos</th>
+            <th>Latência Média</th>
+        </tr>
+        </thead>
         <tbody id="barrels"></tbody>
     </table>
 </div>
 
+<!-- =================== SISTEMA ====================== -->
 <div class="panel">
     <h2>Sistema</h2>
     <div id="system"></div>
@@ -71,29 +94,70 @@
 
 <script>
 
+    function safeJSON(x) {
+        try { return JSON.parse(x); }
+        catch { return {}; }
+    }
+
     let stomp = Stomp.over(new SockJS("/ws"));
+
     stomp.connect({}, () => {
+
         stomp.subscribe("/topic/stats", msg => {
-            let data = JSON.parse(msg.body);
+            let data = safeJSON(msg.body);
 
-            let tq = "";
-            data.topQueries.forEach(q => {
-                tq += `<tr><td>${q.term}</td><td>${q.count}</td></tr>`;
-            });
-            document.querySelector("#topQueries").innerHTML = tq;
+            /* ----------------------------
+               TOP QUERIES
+            ---------------------------- */
+            let tq = document.getElementById("topQueries");
+            tq.innerHTML = "";
 
-            let barrels = "";
-            data.barrels.forEach(b => {
-                barrels += `<tr><td>${b.name}</td><td>${b.docs}</td><td>${b.avgLatency.toFixed(2)}s</td></tr>`;
-            });
-            document.querySelector("#barrels").innerHTML = barrels;
+            if (data.topQueries && Array.isArray(data.topQueries)) {
+                data.topQueries.forEach(q => {
+                    if (q.term !== undefined && q.count !== undefined)
+                        tq.innerHTML += `
+                            <tr>
+                                <td>${q.term}</td>
+                                <td>${q.count}</td>
+                            </tr>`;
+                });
+            }
 
-            document.querySelector("#system").innerHTML =
-                `Documentos: ${data.system.docs}<br>Termos: ${data.system.terms}<br>Postings: ${data.system.postings}`;
+            /* ----------------------------
+               BARRELS
+            ---------------------------- */
+            let bs = document.getElementById("barrels");
+            bs.innerHTML = "";
+
+            if (data.barrels && Array.isArray(data.barrels)) {
+                data.barrels.forEach(b => {
+                    let latency = b.avgLatency !== undefined ? b.avgLatency.toFixed(2) : "0.00";
+                    bs.innerHTML += `
+                        <tr>
+                            <td>${b.name}</td>
+                            <td>${b.docs}</td>
+                            <td>${latency}s</td>
+                        </tr>`;
+                });
+            }
+
+            /* ----------------------------
+               SYSTEM STATS
+            ---------------------------- */
+            let sys = data.system || {};
+            let sdiv = document.getElementById("system");
+
+            sdiv.innerHTML = `
+                <div class="system-line">Documentos: <b>${sys.docs ?? 0}</b></div>
+                <div class="system-line">Termos: <b>${sys.terms ?? 0}</b></div>
+                <div class="system-line">Postings: <b>${sys.postings ?? 0}</b></div>
+            `;
         });
     });
+
 </script>
 
 </body>
 </html>
+
 
