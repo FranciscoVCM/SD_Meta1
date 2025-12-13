@@ -18,10 +18,10 @@ import java.util.List;
 
 public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
-    private String name;
+    private final String name;
     private InvertedIndex index = new InvertedIndex();
-
     private final Path snapshotPath;
+
     private static final int SAVE_EVERY = 100;
     private int appendedSinceSave = 0;
 
@@ -32,27 +32,25 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
         loadIfExists();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                synchronized (this) { persist(); }
-            } catch (Exception ignored) {}
+            try { synchronized (this) { persist(); } }
+            catch (Exception ignored) {}
         }));
     }
 
     @Override
-    public synchronized String getName() throws RemoteException {
+    public String getName() {
         return name;
     }
 
     @Override
-    public synchronized void append(CrawlResult r) throws RemoteException {
+    public synchronized void append(CrawlResult r) {
         if (r == null || r.url == null) return;
 
         PageDocument doc = new PageDocument();
-        doc.url = r.url;
-        doc.normalizedUrl = TextUtils.normalizeUrl(r.url);
-        doc.title = (r.title == null || r.title.isBlank()) ? r.url : r.title;
-        doc.text = (r.text == null) ? "" : r.text;
-        doc.snippet = r.snippet;
+        doc.url      = r.url;
+        doc.title    = (r.title == null || r.title.isBlank() ? r.url : r.title);
+        doc.snippet  = r.snippet;
+        doc.text     = r.text;
         doc.outlinks = r.outlinks;
 
         index.add(doc);
@@ -64,7 +62,7 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     }
 
     @Override
-    public synchronized SearchResult search(SearchQuery q) throws RemoteException {
+    public synchronized SearchResult search(SearchQuery q) {
         long start = System.currentTimeMillis();
         SearchResult r = index.search(q);
         long end = System.currentTimeMillis();
@@ -73,33 +71,30 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
     }
 
     @Override
-    public synchronized int inlinks(String url) throws RemoteException {
+    public synchronized int inlinks(String url) {
         return index.inlinks(url);
     }
 
     @Override
-    public synchronized List<String> backlinks(String url) throws RemoteException {
+    public synchronized List<String> backlinks(String url) {
         return index.backlinks(url);
     }
 
     @Override
-    public synchronized StatsSnapshot barrelStats() throws RemoteException {
+    public synchronized StatsSnapshot barrelStats() {
         StatsSnapshot s = index.stats();
         return s;
     }
 
     private void persist() {
         try {
-            Files.createDirectories(snapshotPath.getParent() == null ?
-                    Path.of(".") : snapshotPath.getParent());
+            if (snapshotPath.getParent() != null)
+                Files.createDirectories(snapshotPath.getParent());
 
-            try (ObjectOutputStream out =
-                         new ObjectOutputStream(Files.newOutputStream(snapshotPath))) {
+            try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(snapshotPath))) {
                 out.writeObject(index);
             }
-
-            System.out.println("[Barrel " + name + "] Saved snapshot → " + snapshotPath);
-
+            System.out.println("[Barrel " + name + "] Saved snapshot.");
         } catch (Exception e) {
             System.err.println("[Barrel] snapshot failed: " + e);
         }
@@ -107,15 +102,13 @@ public class BarrelReplica extends UnicastRemoteObject implements Barrel {
 
     private void loadIfExists() {
         try {
-            if (Files.exists(snapshotPath)) {
-                try (ObjectInputStream in =
-                             new ObjectInputStream(Files.newInputStream(snapshotPath))) {
-                    Object obj = in.readObject();
-                    if (obj instanceof InvertedIndex loaded) {
-                        this.index = loaded;
-                        System.out.println("[Barrel " + name + "] Restored snapshot: " +
-                                snapshotPath.toAbsolutePath());
-                    }
+            if (!Files.exists(snapshotPath)) return;
+
+            try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(snapshotPath))) {
+                Object obj = in.readObject();
+                if (obj instanceof InvertedIndex loaded) {
+                    index = loaded;
+                    System.out.println("[Barrel " + name + "] Restored snapshot.");
                 }
             }
         } catch (Exception e) {

@@ -2,7 +2,6 @@ package com.googol.webserver.websocket;
 
 import com.googol.model.StatsSnapshot;
 import com.googol.webserver.rmi.GatewayService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,39 +18,35 @@ public class StatsPublisher {
     @Autowired
     private GatewayService gateway;
 
-    @Scheduled(fixedRate = 1500)
+    @Scheduled(fixedRate = 1200)
     public void publishStats() {
-
         StatsSnapshot s = gateway.stats();
         if (s == null) return;
 
         // TOP QUERIES
-        List<Object> top = new ArrayList<>();
-        for (String q : s.topQueries) {
-            String[] parts = q.split("\\s+\\(");
-            if (parts.length < 2) continue;
+        List<Map<String,Object>> top = new ArrayList<>();
+        for (String raw : s.topQueries) {
+            String[] p = raw.split("\\(");
+            if (p.length < 2) continue;
 
-            String term = parts[0];
-            int count = Integer.parseInt(parts[1].replace(")", ""));
-            top.add(Map.of("term", term, "count", count));
-        }
-
-        // BARRELS
-        List<Object> barrels = new ArrayList<>();
-        for (var e : s.barrelNumDocs.entrySet()) {
-            String name = e.getKey();
-            int docs = e.getValue();
-            double latency = s.barrelAvgLatencySec.getOrDefault(name, 0.0);
-
-            barrels.add(Map.of(
-                    "name", name,
-                    "docs", docs,
-                    "avgLatency", latency
+            top.add(Map.of(
+                    "term", p[0].trim(),
+                    "count", Integer.parseInt(p[1].replace(")", "").trim())
             ));
         }
 
-        // SEND PACKET
-        var packet = Map.of(
+        // BARRELS
+        List<Map<String,Object>> barrels = new ArrayList<>();
+        for (var e : s.barrelNumDocs.entrySet()) {
+            barrels.add(Map.of(
+                    "name", e.getKey(),
+                    "docs", e.getValue(),
+                    "avgLatency", s.barrelAvgLatencySec.getOrDefault(e.getKey(), 0.0)
+            ));
+        }
+
+        // PACKET
+        Map<String,Object> packet = Map.of(
                 "topQueries", top,
                 "barrels", barrels,
                 "system", Map.of(

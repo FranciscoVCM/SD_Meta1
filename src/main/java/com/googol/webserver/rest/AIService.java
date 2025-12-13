@@ -5,91 +5,96 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 
 @Service
 public class AIService {
 
     private static final String OLLAMA_URL = "http://localhost:11434/api/generate";
-    private static final String MODEL = "gemma2:2b"; // podes trocar por llama3:8b etc
+    private static final String MODEL = "gemma2:2b";
 
-    public String summarize(String text) {
+    public String analyzeSearch(String query, List<String> snippets) {
 
-        // Caso texto seja vazio
-        if (text == null || text.isBlank()) {
-            return "Nenhum texto para resumir.";
+        if (query == null || query.isBlank()) {
+            return "Nenhuma análise disponível.";
         }
+
+        // Criar texto base para análise
+        StringBuilder sb = new StringBuilder();
+        sb.append("Termo de pesquisa: ").append(query).append("\n\n");
+        sb.append("Trechos das páginas encontradas:\n");
+
+        for (int i = 0; i < Math.min(5, snippets.size()); i++) {
+            sb.append("- ").append(snippets.get(i)).append("\n");
+        }
+
+        String prompt = """
+                Faça uma análise curta (máx. 80 palavras) sobre o tema pesquisado,
+                baseada no termo e nos trechos das páginas apresentados abaixo.
+                Não resuma cada página; produza uma visão geral do tópico.
+
+                Conteúdo:
+                %s
+                """.formatted(sb);
 
         try {
             URL url = URI.create(OLLAMA_URL).toURL();
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
             con.setRequestMethod("POST");
-            con.setConnectTimeout(4000);
-            con.setReadTimeout(15000);
             con.setDoOutput(true);
+            con.setConnectTimeout(5000);
+            con.setReadTimeout(15000);
             con.setRequestProperty("Content-Type", "application/json");
 
             String payload = """
             {
                 "model": "%s",
-                "prompt": "Resuma o seguinte texto de forma clara e concisa:\\n%s",
+                "prompt": "%s",
                 "stream": false
             }
-            """.formatted(MODEL, escape(text));
+            """.formatted(MODEL, escape(prompt));
 
-            // enviar JSON
             try (OutputStream os = con.getOutputStream()) {
                 os.write(payload.getBytes());
             }
 
             int code = con.getResponseCode();
-
             if (code != 200) {
-                return "Erro: Ollama respondeu com código HTTP " + code;
+                return "⚠ Erro do modelo (HTTP " + code + ")";
             }
 
-            // ler resposta inteira
-            StringBuilder sb = new StringBuilder();
+            // ler JSON inteiro
+            StringBuilder resp = new StringBuilder();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
                 String line;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
-                }
+                while ((line = br.readLine()) != null)
+                    resp.append(line);
             }
 
-            // resposta vem como JSON → extrair campo "response"
-            return extractResponse(sb.toString());
+            return extractResponse(resp.toString());
 
         } catch (IOException e) {
             return """
-            ⚠ Não foi possível contactar o Ollama.
+            ⚠ IA indisponível no momento.
 
             Certifica-te que tens o Ollama a correr:
-              →  abre terminal e executa:  ollama serve
+              → abre terminal e executa:  ollama serve
             """;
         }
     }
-
-    // --- Helpers -----------------------------------
 
     private String escape(String s) {
         return s.replace("\"", "\\\"");
     }
 
-    /**
-     * Extrai o campo "response" do JSON devolvido pelo Ollama.
-     *
-     * Formato típico:
-     * {"model":"...","created_at":"...", "response":"TEXTO AQUI", ...}
-     */
     private String extractResponse(String json) {
         int i = json.indexOf("\"response\"");
-        if (i < 0) return "Erro: resposta inválida do modelo.";
+        if (i < 0) return "Erro ao interpretar resposta da IA.";
 
         int start = json.indexOf("\"", i + 11) + 1;
-        int end   = json.indexOf("\"", start);
-
-        if (start < 0 || end < 0) return "Erro ao interpretar resposta da IA.";
+        int end = json.indexOf("\"", start);
+        if (start < 0 || end < 0) return "Erro ao ler resposta da IA.";
 
         return json.substring(start, end)
                 .replace("\\n", "\n")

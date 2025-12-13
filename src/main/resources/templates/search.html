@@ -1,48 +1,45 @@
 <!DOCTYPE html>
-<html lang="pt" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Googol Search</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body {
+            background: #2b2535;
+            color: #f0e6ff;
             margin: 0;
             padding: 0;
-            background: #2e2a38; /* tom roxo escuro igual ao screenshot */
             font-family: Arial, Helvetica, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            height: 100vh;
-            color: white;
         }
 
-        /* LOGO */
+        .top-bar {
+            width: 100%;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            background: #241f2d;
+            box-shadow: 0px 2px 8px rgba(0,0,0,0.23);
+        }
+
         .logo {
-            font-size: 64px;
+            font-size: 36px;
             font-weight: bold;
-            margin-top: 120px;
-            margin-bottom: 40px;
-            color: #d8b4ff; /* Lilás suave estilo Google Dark Mode */
-            letter-spacing: 2px;
+            color: #ff9248;
+            margin-right: 25px;
+            text-decoration: none;
         }
 
-        /* SEARCH BOX */
-        .search-box, .index-box {
-            width: 95%;
-            max-width: 700px;
-            background: white;
+        .search-container {
+            flex: 1;
             display: flex;
-            align-items: center;
+            background: white;
             border-radius: 30px;
-            padding: 10px 20px;
-            margin-bottom: 20px;
+            padding: 6px 20px;
+            align-items: center;
         }
 
-        .search-box input,
-        .index-box input {
+        .search-container input {
             flex: 1;
             border: none;
             outline: none;
@@ -50,57 +47,198 @@
             padding: 10px;
         }
 
-        .search-btn, .index-btn {
-            background: #f1eef7;
+        .search-btn {
+            background: #ffb782;
             border: none;
-            padding: 12px 20px;
+            padding: 10px 20px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #ffcaa4;
+        }
+
+        /* MAIN WRAPPER */
+        .results-wrapper {
+            margin: 30px auto;
+            display: flex;
+            width: 95%;
+            max-width: 1300px;
+            gap: 28px;
+        }
+
+        /* LEFT COLUMN: SEARCH RESULTS */
+        .results {
+            flex: 3;
+        }
+
+        .result-item {
+            background: #3a3344;
+            padding: 22px;
+            border-radius: 12px;
+            margin-bottom: 20px;
             transition: 0.2s;
         }
 
-        .search-btn:hover, .index-btn:hover {
-            background: #e0d9f0;
+        .result-item:hover {
+            background: #463d51;
         }
 
-        /* MENSAGENS */
-        .msg {
-            color: #6dff6d;
-            margin-top: 10px;
+        .result-item a {
+            font-size: 22px;
+            color: #ffae6d;
+            text-decoration: none;
         }
 
-        .error {
-            color: #ff6d6d;
-            margin-top: 10px;
+        .snippet {
+            margin-top: 6px;
+            font-size: 15px;
+            color: #d0c4e4;
         }
 
-        a {
-            color: #caaaff;
+        .meta span {
+            margin-right: 12px;
+            font-size: 14px;
+            color: #b8accd;
+        }
+
+        /* RIGHT COLUMN: AI PANEL */
+        .side-panel {
+            flex: 2;
+            background: #322c3d;
+            padding: 20px;
+            border-radius: 14px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .side-panel h2 {
+            margin-top: 0;
+            color: #ffae6d;
+        }
+
+        .ai-output {
+            background: #2a2431;
+            padding: 15px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            line-height: 1.45;
+            color: #e8ddff;
+        }
+
+        /* Pagination */
+        .pagination {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .pagination a {
+            margin: 0 6px;
+            padding: 8px 14px;
+            background: #423857;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        .pagination a:hover {
+            background: #5c5078;
+        }
+
+        .current {
+            background: #ff9248 !important;
+            color: black !important;
+            font-weight: bold;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 950px) {
+            .results-wrapper {
+                flex-direction: column;
+            }
+            .side-panel {
+                order: -1;
+                width: 100%;
+            }
         }
     </style>
-</head>
 
+</head>
 <body>
 
-<div class="logo">Googol</div>
+<!-- TOP BAR -->
+<div class="top-bar">
+    <a href="/" class="logo">Googol</a>
 
-<!-- SEARCH FORM -->
-<form action="/search" method="get" class="search-box">
-    <input type="text" name="terms" placeholder="Search Googol..." required>
-    <button class="search-btn" type="submit">Search</button>
-</form>
+    <form action="/search" method="get" class="search-container">
+        <input type="text" name="terms" placeholder="Pesquisar..."
+               th:value="${terms}">
+        <button class="search-btn">Pesquisar</button>
+    </form>
+</div>
 
-<!-- INDEX FORM -->
-<form action="/index" method="post" class="index-box">
-    <input type="text" name="url" placeholder="Index a new URL...">
-    <button class="index-btn" type="submit">Index</button>
-</form>
 
-<!-- FEEDBACK -->
-<p class="msg" th:if="${msg}" th:text="${msg}"></p>
-<p class="error" th:if="${error}" th:text="${error}"></p>
+
+<!-- MAIN CONTENT -->
+<div class="results-wrapper">
+
+    <!-- LEFT COLUMN: SEARCH RESULTS -->
+    <div class="results">
+        <h2 th:if="${result != null}"
+            th:text="'Resultados para: ' + ${terms}">
+        </h2>
+
+        <div th:if="${result != null && result.items.size() == 0}"
+             style="margin-top:20px; font-size:20px;">
+            Nenhum resultado encontrado.
+        </div>
+
+        <div th:each="i : ${result.items}" class="result-item">
+
+            <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
+
+            <div class="snippet" th:text="${i.snippet}"></div>
+
+            <div class="meta">
+                <span th:text="'Inlinks: ' + ${i.inlinks}"></span>
+                <span th:text="'Outlinks: ' + ${i.outlinks}"></span>
+            </div>
+
+        </div>
+
+
+        <!-- PAGINATION -->
+        <div th:if="${result != null && result.total > 10}" class="pagination">
+            <a th:each="p : ${#numbers.sequence(1, (result.total / 10) + 1)}"
+               th:href="@{'/search'(terms=${terms}, page=${p})}"
+               th:text="${p}"
+               th:classappend="${p == result.page} ? 'current'">
+            </a>
+        </div>
+    </div>
+
+
+
+    <!-- RIGHT COLUMN: AI PANEL -->
+    <div class="side-panel">
+        <h2>Análise AI:</h2>
+
+        <div class="ai-output"
+             th:if="${analysis != null}"
+             th:text="${analysis}">
+        </div>
+
+        <div th:if="${analysis == null}">
+            <p>A análise inteligente ainda não está disponível.</p>
+        </div>
+    </div>
+
+</div>
+
 
 </body>
 </html>
-

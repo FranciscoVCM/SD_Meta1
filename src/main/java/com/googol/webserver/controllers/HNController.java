@@ -21,12 +21,14 @@ public class HNController {
             @RequestParam(defaultValue = "0") int page,
             Model model
     ) {
-        if (term.isBlank()) return "hackernews";
+        if (term.isBlank())
+            return "hackernews";
 
         HNSearchResult result = hn.search(term, page);
 
         model.addAttribute("term", term);
         model.addAttribute("result", result);
+
         return "hackernews";
     }
 }
