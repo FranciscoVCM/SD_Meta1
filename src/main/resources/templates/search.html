@@ -17,31 +17,34 @@
         /* TOP BAR */
         .top-bar {
             width: 100%;
-            padding: 20px 40px;
+            padding: 20px 30px;
             display: flex;
             align-items: center;
             background: #241f2d;
-            box-shadow: 0px 2px 8px rgba(0,0,0,0.23);
-            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.23);
+            position: sticky;
+            top: 0;
+            z-index: 20;
         }
 
         .logo {
-            font-size: 38px;
+            font-size: 36px;
             font-weight: bold;
             color: #ff9248;
-            margin-right: 30px;
+            margin-right: 25px;
             text-decoration: none;
-            white-space: nowrap;
         }
 
         .search-container {
-            flex: 1;
-            display: flex;
+            flex: 0 1 700px;
             max-width: 700px;
+            width: 100%;
+            display: flex;
             background: white;
             border-radius: 30px;
-            padding: 6px 18px;
+            padding: 6px 20px;
             align-items: center;
+            margin-right: 40px;
         }
 
         .search-container input {
@@ -55,38 +58,44 @@
         .search-btn {
             background: #ffb782;
             border: none;
-            padding: 10px 22px;
+            padding: 10px 20px;
             border-radius: 20px;
             cursor: pointer;
-            transition: 0.2s;
-            font-size: 15px;
+            transition: 0.3s;
         }
 
         .search-btn:hover {
             background: #ffcaa4;
         }
 
-        /* MAIN LAYOUT */
-        .layout {
-            display: grid;
-            grid-template-columns: 3fr 2fr;
-            gap: 30px;
-            width: 95%;
-            max-width: 1500px;
-            margin: 40px auto;
+        /* MAIN WRAPPER */
+        .page-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
         }
 
-        /* RESULTS COLUMN */
+        .main-grid {
+            width: 95%;
+            max-width: 1500px;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 30px;
+        }
+
+        /* LEFT: SEARCH RESULTS */
         .results h2 {
             margin-top: 0;
+            margin-bottom: 15px;
             font-size: 26px;
         }
 
         .result-item {
             background: #3a3344;
-            padding: 20px;
+            padding: 22px;
             border-radius: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
             transition: 0.2s;
         }
 
@@ -112,15 +121,12 @@
             color: #b8accd;
         }
 
-        /* AI PANEL */
+        /* RIGHT: AI PANEL */
         .ai-panel {
             background: #322c3d;
-            padding: 25px;
-            border-radius: 14px;
-            position: sticky;
-            top: 20px;
-            height: fit-content;
-            min-height: 200px;
+            padding: 20px;
+            border-radius: 16px;
+            min-height: 250px;
         }
 
         .ai-panel h2 {
@@ -131,12 +137,13 @@
 
         .ai-output {
             background: #2a2431;
-            padding: 15px;
-            border-radius: 10px;
-            min-height: 120px;
+            padding: 16px;
+            border-radius: 12px;
             white-space: pre-wrap;
-            font-size: 15px;
             line-height: 1.45;
+            color: #e8ddff;
+            font-size: 15.5px;
+            min-height: 160px;
         }
 
         /* PAGINATION */
@@ -166,15 +173,11 @@
         }
 
         /* RESPONSIVE */
-        @media (max-width: 1100px) {
-            .layout {
+        @media (max-width: 1050px) {
+            .main-grid {
                 grid-template-columns: 1fr;
             }
-            .ai-panel {
-                order: -1;
-            }
         }
-
     </style>
 </head>
 
@@ -190,51 +193,56 @@
     </form>
 </div>
 
-<!-- MAIN LAYOUT -->
-<div class="layout">
+<!-- GRID MAIN -->
+<div class="page-wrapper">
+    <div class="main-grid">
 
-    <!-- LEFT: RESULTS -->
-    <div class="results">
+        <!-- LEFT COLUMN -->
+        <div class="results">
 
-        <h2 th:if="${terms != ''}" th:text="'Resultados para: ' + ${terms}"></h2>
+            <h2 th:if="${terms != ''}"
+                th:text="'Resultados para: ' + ${terms}">
+            </h2>
 
-        <!-- No results -->
-        <div th:if="${result != null and result.items.size() == 0}"
-             style="margin-top:20px; font-size:20px;">
-            Nenhum resultado encontrado.
-        </div>
+            <!-- Caso não haja resultados -->
+            <div th:if="${result != null && result.items.size() == 0}"
+                 style="margin-top:20px; font-size:20px;">
+                Nenhum resultado encontrado.
+            </div>
 
-        <!-- List results -->
-        <div th:each="i : ${result.items}" class="result-item">
-            <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
-            <div class="snippet" th:text="${i.snippet}"></div>
+            <!-- LISTA DE RESULTADOS -->
+            <div th:each="i : ${result.items}" class="result-item">
 
-            <div class="meta">
-                <span th:text="'Inlinks: ' + ${i.inlinks}"></span>
-                <span th:text="'Outlinks: ' + ${i.outlinks}"></span>
+                <a th:href="${i.url}" th:text="${i.title}" target="_blank"></a>
+
+                <div class="snippet" th:text="${i.snippet}"></div>
+
+                <div class="meta">
+                    <span th:text="'Inlinks: ' + ${i.inlinks}"></span>
+                    <span th:text="'Outlinks: ' + ${i.outlinks}"></span>
+                </div>
+
+            </div>
+
+            <!-- PAGINATION -->
+            <div th:if="${result != null && result.total > 10}" class="pagination">
+                <a th:each="p : ${#numbers.sequence(1, (result.total / 10) + 1)}"
+                   th:href="@{'/search'(terms=${terms}, page=${p})}"
+                   th:text="${p}"
+                   th:classappend="${p == result.page} ? 'current'">
+                </a>
             </div>
         </div>
 
-        <!-- Pagination -->
-        <div th:if="${result != null && result.total > 10}" class="pagination">
-            <a th:each="p : ${#numbers.sequence(1, (result.total / 10) + 1)}"
-               th:href="@{'/search'(terms=${terms}, page=${p})}"
-               th:text="${p}"
-               th:classappend="${p == result.page} ? 'current'">
-            </a>
+        <!-- RIGHT COLUMN (AI PANEL) -->
+        <div class="ai-panel" th:if="${analysis != null and analysis != ''}">
+            <h2>Análise AI:</h2>
+
+            <div class="ai-output" th:text="${analysis}">
+            </div>
         </div>
 
     </div>
-
-    <!-- RIGHT: AI PANEL -->
-    <div class="ai-panel" th:if="${terms != ''}">
-        <h2>Análise AI:</h2>
-
-        <div class="ai-output"
-             th:text="${analysis != null && analysis != '' ? analysis : 'Gerando resumo…'}">
-        </div>
-    </div>
-
 </div>
 
 </body>
