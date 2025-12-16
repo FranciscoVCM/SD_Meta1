@@ -87,5 +87,14 @@ public class GatewayService {
             return java.util.List.of();
         }
     }
+    public long getLastSearchLatency(){
+        Gateway gw = connect();
+        if (gw == null) return -1;
+        try {
+            return gw.getLastSearchLatency();
+        } catch (Exception e) {
+            return -1;
+        }
+    }
 }
 

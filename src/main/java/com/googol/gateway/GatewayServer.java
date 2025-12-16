@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GatewayServer extends UnicastRemoteObject implements Gateway {
     private final Map<String, Long> lastSearchLatencyMs = new ConcurrentHashMap<>();
     private final Map<String, Double> barrelLastLatency = new ConcurrentHashMap<>();
+    private volatile long lastGlobalLatencyMs = 0;
     /* ===============================
           QUEUE + STRUCTURES
        =============================== */
@@ -121,6 +122,7 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
 
             long latency = t1 - t0;
             res.lastSearchMs = (t1 - t0);
+            lastGlobalLatencyMs = latency;
 
             barrelLastLatency.put(b.getName(), (double) latency / 1000.0);
             return res;
@@ -185,7 +187,8 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
                         b.getName(),
                         barrelLastLatency.getOrDefault(b.getName(), 0.0)
                 );
-            } catch (Exception ignored) { }
+            } catch (Exception ignored) {
+            }
         }
 
         // Top queries
@@ -197,5 +200,9 @@ public class GatewayServer extends UnicastRemoteObject implements Gateway {
                 ));
 
         return s;
+        }
+        public long getLastSearchLatency() {
+            return lastGlobalLatencyMs;
+
     }
 }

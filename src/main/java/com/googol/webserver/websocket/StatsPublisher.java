@@ -12,12 +12,12 @@ import java.util.*;
 @Component
 public class StatsPublisher {
 
+    private volatile long lastGlobalSearchMs = 0;
     @Autowired
     private SimpMessagingTemplate msg;
 
     @Autowired
     private GatewayService gateway;
-
     @Scheduled(fixedRate = 1200)
     public void publishStats() {
         StatsSnapshot s = gateway.stats();
@@ -44,7 +44,7 @@ public class StatsPublisher {
                     "avgLatency", s.barrelAvgLatencySec.getOrDefault(e.getKey(), 0.0)
             ));
         }
-
+        lastGlobalSearchMs = gateway.getLastSearchLatency();
         // PACKET
         Map<String,Object> packet = Map.of(
                 "topQueries", top,
@@ -54,7 +54,7 @@ public class StatsPublisher {
                         "terms", s.numTerms,
                         "postings", s.numPostings
                 ),
-                "lastSearchMs", s.barrelAvgLatencySec
+                "lastSearchMs", lastGlobalSearchMs
         );
 
         msg.convertAndSend("/topic/stats", packet);
