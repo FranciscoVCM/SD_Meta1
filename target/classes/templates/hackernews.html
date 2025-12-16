@@ -160,7 +160,7 @@
   </h2>
 
   <!-- mostra mensagem apenas se houve pesquisa -->
-  <div th:if="${term != '' and result.items.empty}">
+  <div th:if="${term != '' and #lists.isEmpty(result.items)}">
     Nenhum resultado encontrado.
   </div>
 
