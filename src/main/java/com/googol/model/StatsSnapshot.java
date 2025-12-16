@@ -5,7 +5,6 @@ import java.util.*;
 
 public class StatsSnapshot implements Serializable {
     private static final long serialVersionUID = 1L;
-    public long lastSearchMs;
 
     // Totais globais
     public int numDocs = 0;
